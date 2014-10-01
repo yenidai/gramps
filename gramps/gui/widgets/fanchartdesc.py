@@ -478,10 +478,10 @@ class FanChartDescWidget(FanChartBaseWidget):
             cr.fill()
             cr.save()
             name = name_displayer.display(person)
-            self.draw_text(cr, name, self.CENTER - PIXELS_PER_GENFAMILY 
-                        - (self.CENTER - PIXELS_PER_GENFAMILY 
-                           - (CHILDRING_WIDTH + TRANSLATE_PX))/2, 
-                        95, 455, 10, False,
+            radiusin = CHILDRING_WIDTH + TRANSLATE_PX
+            radiusout = self.CENTER - PIXELS_PER_GENFAMILY
+            self.draw_person_text(cr, person, radiusin, radiusout,
+                        math.radians(90), math.radians(90 + 360), False,
                         self.fontcolor(r, g, b, a), self.fontbold(a))
             cr.restore()
             #draw center to move chart
@@ -505,7 +505,7 @@ class FanChartDescWidget(FanChartBaseWidget):
                 fam, dup, start, slice, text, posfam, nrchild, userdata,\
                     partner, status = famdata
                 if status != COLLAPSED:
-                    self.draw_person(cr, text, start, slice, radstart, 
+                    self.draw_person(cr, start, slice, radstart, 
                                      radstart + PIXELS_PER_GENFAMILY, gen, dup, 
                                      partner, userdata, family=True, thick=status != NORMAL)
             radstart += PIXELS_PER_GENFAMILY
@@ -515,7 +515,7 @@ class FanChartDescWidget(FanChartBaseWidget):
                 pers, dup, start, slice, text, pospar, nrfam, userdata, status = \
                     pdata
                 if status != COLLAPSED:
-                    self.draw_person(cr, text, start, slice, radstart, 
+                    self.draw_person(cr, start, slice, radstart, 
                                      radstart + PIXELS_PER_GENPERSON, gen+1, dup, 
                                      pers, userdata, thick=status != NORMAL)
         cr.restore()
@@ -523,7 +523,7 @@ class FanChartDescWidget(FanChartBaseWidget):
         if self.background in [BACKGROUND_GRAD_AGE, BACKGROUND_GRAD_PERIOD]:
             self.draw_gradient(cr, widget, halfdist)
 
-    def draw_person(self, cr, name, start_rad, slice, radius, radiusend, 
+    def draw_person(self, cr, start_rad, slice, radiusin, radiusout, 
                 generation, dup, person, userdata, family=False, thick=False):
         """
         Display the piece of pie for a given person. start_rad and slice
@@ -550,40 +550,20 @@ class FanChartDescWidget(FanChartBaseWidget):
         if (not family and generation == self.generations - 1 
                 and self._have_children(person)):
             # draw an indicator
-            radmax = radiusend + BORDER_EDGE_WIDTH
-            cr.move_to(radmax*math.cos(start_rad), radmax*math.sin(start_rad))
-            cr.arc(0, 0, radmax, start_rad, stop_rad)
-            cr.line_to(radiusend*math.cos(stop_rad), radiusend*math.sin(stop_rad))
-            cr.arc_negative(0, 0, radiusend, stop_rad, start_rad)
-            cr.close_path()
-            ##path = cr.copy_path() # not working correct
-            cr.set_source_rgb(1, 1, 1) # white
-            cr.fill()
-            #and again for the border
-            cr.move_to(radmax*math.cos(start_rad), radmax*math.sin(start_rad))
-            cr.arc(0, 0, radmax, start_rad, stop_rad)
-            cr.line_to(radiusend*math.cos(stop_rad), radiusend*math.sin(stop_rad))
-            cr.arc_negative(0, 0, radiusend, stop_rad, start_rad)
-            cr.close_path()
-            ##cr.append_path(path) # not working correct
-            cr.set_source_rgb(0, 0, 0) # black
-            cr.stroke()
+            color=(1.0, 1.0, 1.0, 1.0) # white
+            self.draw_radbox(cr, radiusout, radiusout + BORDER_EDGE_WIDTH, start_rad, stop_rad, color, thick=False)
         # now draw the person
-        self.draw_radbox(cr, radius, radiusend, start_rad, stop_rad,
+        self.draw_radbox(cr, radiusin, radiusout, start_rad, stop_rad,
                          (r/255, g/255, b/255, a), thick)
         if self.last_x is None or self.last_y is None:
             #we are not in a move, so draw text
             radial = False
-            width = radiusend-radius
-            radstart = radius + width/2
-            spacepolartext = radstart * (stop_rad-start_rad)
-            if spacepolartext < width * 1.1:
-                # more space to print it radial
-                radial = True
-                radstart = radius
-            self.draw_text(cr, name, radstart, start_rad/ math.pi*180,
-                           stop_rad/ math.pi*180, width, radial, 
-                           self.fontcolor(r, g, b, a), self.fontbold(a))
+            if self.radialtext: ## and generation >= 6:
+                space_arc_text =  (radiusin+radiusout)/2 * (stop_rad-start_rad)
+                # is there more space to print it radial ?
+                radial= (space_arc_text < (radiusout-radiusin) * 1.1)
+            self.draw_person_text(cr, person, radiusin, radiusout, start_rad, stop_rad, 
+                           radial, self.fontcolor(r, g, b, a), self.fontbold(a))
         cr.restore()
 
     def boxtype(self, radius):

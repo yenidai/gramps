@@ -498,6 +498,9 @@ class FanChartBaseWidget(Gtk.DrawingArea):
 
     def draw_radbox(self, cr, radiusin, radiusout, start_rad, stop_rad, color,
                     thick=False):
+        """
+        Procedure to draw a person in the outter ring position
+        """
         cr.move_to(radiusout * math.cos(start_rad), radiusout * math.sin(start_rad))
         cr.arc(0, 0, radiusout, start_rad, stop_rad)
         cr.line_to(radiusin * math.cos(stop_rad), radiusin * math.sin(stop_rad))
@@ -556,9 +559,17 @@ class FanChartBaseWidget(Gtk.DrawingArea):
         cr.set_source_rgba(r/255., g/255., b/255., a) 
         cr.fill()
 
+    def draw_person_text(self, cr, person, radiusin, radiusout, start, stop,
+                  radial=False, fontcolor=(0, 0, 0), bold=False):
+        if not person: return
+        draw_radial = radial and self.radialtext
+        name=name_displayer.display(person)
+        self.draw_text(cr, name, radiusin, radiusout, start, stop, draw_radial, 
+                   fontcolor, bold)
+
     def wrap_truncate_layout(self, layout, font, width_pixels):
-        """Uses the layout to wrap and truncate its text to given width
-        
+        """
+        Uses the layout to wrap and truncate its text to given width
         Returns: (w,h) as returned by layout.get_pixel_size()
         """
 
@@ -572,94 +583,90 @@ class FanChartBaseWidget(Gtk.DrawingArea):
 
         return layout.get_pixel_size()
 
-    def draw_text(self, cr, text, radius, start, stop,
-                  height=PIXELS_PER_GENERATION, radial=False,
+    def draw_text(self, cr, text, radiusin, radiusout, start_rad, stop_rad,
+                  radial=False,
                   fontcolor=(0, 0, 0), bold=False):
         """
-        Display text at a particular radius, between start and stop
-        degrees.
+        Display text at a particular radius, between start_rad and stop_rad
+        radians.
         """
-        cr.save()
         font = Pango.FontDescription(self.fontdescr)
         fontsize = self.fontsize
         font.set_size(fontsize * Pango.SCALE)
         if bold:
             font.set_weight(Pango.Weight.BOLD)
+        cr.save()
         cr.set_source_rgb(*fontcolor)
         if radial and self.radialtext:
-            cr.save()
-            layout = self.create_pango_layout(text)
-            layout.set_font_description(font)
-            layout.set_wrap(Pango.WrapMode.CHAR)
-
-            # NOTE: for radial text, the sector radius height is the text width 
-            w, h = self.wrap_truncate_layout(layout, font, height - 2*PAD_TEXT)
-
-            w = w + 5 # 5 pixel padding
-            h = h + 4 # 4 pixel padding
-            #first we check if height is ok
-            degneedheight = math.degrees(h / radius)
-            degavailheight = stop-start
-            degoffsetheight = 0
-            if degneedheight > degavailheight:
-                #reduce height
-                fontsize = degavailheight / degneedheight * fontsize / 2
-                font.set_size(fontsize * Pango.SCALE)
-                w, h = self.wrap_truncate_layout(layout, font, height - 2*PAD_TEXT)
-                w = w + 5 # 5 pixel padding
-                h = h + 4 # 4 pixel padding
-                #first we check if height is ok
-                degneedheight = math.degrees(h / radius)
-                degavailheight = stop-start
-                if degneedheight > degavailheight:
-                    #we could not fix it, no text
-                    text = ""
-            if text:
-                #spread rest
-                degoffsetheight = (degavailheight - degneedheight) / 2
-            # offset for cairo-font system is 90
-            rotval = self.rotate_value % 360 - 90
-            if (start + rotval) % 360 > 179:
-                pos = start + degoffsetheight + 90 - 90
-            else:
-                pos = stop - degoffsetheight + 180
-            cr.rotate(math.radians(pos))
-            layout.context_changed()
-            if (start + rotval) % 360 > 179:
-                cr.move_to(radius + PAD_TEXT, 0)
-            else:
-                cr.move_to(-radius - height + PAD_TEXT, 0)
-            PangoCairo.show_layout(cr, layout)
-            cr.restore()
+            self.draw_radial_text(cr, text, radiusin, radiusout, start_rad, stop_rad, font)
         else:
-            self.draw_arc_text(cr, text, radius, start, stop, font)
+            self.draw_arc_text(cr, text, radiusin, radiusout, start_rad, stop_rad, font)
         cr.restore()
 
-    def draw_arc_text(self, cr, text, radius, start, stop, font):
+    def draw_radial_text(self, cr, text, radiusin, radiusout, start_rad, stop_rad, font):
+        layout = self.create_pango_layout(text)
+        layout.set_font_description(font)
+        layout.set_wrap(Pango.WrapMode.CHAR)
+
+        # compute available text space
+        # NOTE: for radial text, the sector radius height is the text width 
+        avail_height = (stop_rad - start_rad) * radiusin - 2.0 * PAD_TEXT 
+        avail_width = radiusout - radiusin - 2.0 * PAD_TEXT
+
+        w, h = self.wrap_truncate_layout(layout, font, avail_width)
+
+        #1. we check if height is ok
+        if h > avail_height:
+            #try to reduce the height
+            fontsize = max(avail_height / h * font.get_size() /1.1, font.get_size()/2.0)
+            font.set_size(fontsize)
+            layout.set_text(text, len(text)) # reducing the height allows for more characters
+            w, h = self.wrap_truncate_layout(layout, font, avail_width)
+            # we check again if height is ok
+            if h > avail_height:
+                #we could not fix it, no text
+                text = ""
+        #  2. now draw this text
+        # offset for cairo-font system is 90
+        if (math.degrees(start_rad) + self.rotate_value - 90) % 360 < 179:
+            angle = (start_rad + stop_rad)/2 + math.pi
+            start_pos = -radiusout + PAD_TEXT
+        else:
+            angle = (start_rad + stop_rad)/2
+            start_pos = radiusin + PAD_TEXT
+        cr.rotate(angle)
+        layout.context_changed()
+        cr.move_to(start_pos, 0)
+        PangoCairo.show_layout(cr, layout)
+
+    def draw_arc_text(self, cr, text, radiusin, radiusout, start_rad, stop_rad, font):
         """
         Display text at a particular radius, between start and stop
         degrees, setting it up along the arc, center-justified.
 
-        Text not fitting a single line will be word-wrapped away.
+        Text not fitting a single line will be char-wrapped away.
         """
-
-        # 1. determine the spread of text we can draw, in radians
-        degpadding = math.degrees(PAD_TEXT / radius)
-        # offset for cairo-font system is 90, padding used is 5:
-        pos = start + 90 + degpadding/2
-        cr.save()
-        cr.rotate(math.radians(pos))
-        cr.new_path()
-        cr.move_to(0, -radius)
-        rad_spread = math.radians(stop - start - degpadding)
-
-        # 2. Use Pango.Layout to set up the text for us, and do
-        # the hard work in CTL text handling and line wrapping.
-        # Clip to the top line only so the text looks nice
-        # all around the circle at the same radius.
         layout = self.create_pango_layout(text)
-        layout.set_wrap(Pango.WrapMode.WORD)
-        w, h = self.wrap_truncate_layout(layout, font, radius * rad_spread)
+        layout.set_font_description(font)
+        layout.set_wrap(Pango.WrapMode.CHAR)
+
+        # get height of text:
+        textheight=layout.get_size()[1]/Pango.SCALE
+        radius_text=(radiusin+radiusout)/2.0 #+ textheight/2.0
+
+        # 1. compute available text space
+        avail_height = radiusout - radiusin - 2.0 * PAD_TEXT
+        avail_width = (stop_rad - start_rad) * radius_text - 2.0 * PAD_TEXT
+
+        w, h = self.wrap_truncate_layout(layout, font, avail_width)
+
+        rad_padding = PAD_TEXT / radius_text
+        # 2. Compute text position start angle
+        pos_rad = start_rad + math.pi/2 + rad_padding # offset for cairo-font system is 90:
+        cr.rotate(pos_rad)
+        cr.new_path()
+        cr.move_to(0, -radiusin)
+        rad_spread = avail_width / radius_text
 
         # 3. Use the layout to provide us the metrics of the text box
         PangoCairo.layout_path(cr, layout)
@@ -668,15 +675,14 @@ class FanChartBaseWidget(Gtk.DrawingArea):
         if pe == (0.0, 0.0, 0.0, 0.0):
             # 7710: When scrolling the path extents are zero on Ubuntu 14.04
             return
-        arc_used_ratio = w / (radius * rad_spread)
-        rad_mid = math.radians(pos) + rad_spread/2
+        arc_used_ratio = w / (radius_text * rad_spread)
+        rad_mid = pos_rad + rad_spread/2
 
         # 4. The moment of truth: map the text box onto the sector, and render!
         warpPath(cr, \
-            self.create_map_rect_to_sector(radius, pe, \
+            self.create_map_rect_to_sector(radius_text, pe, \
                 arc_used_ratio, rad_mid - rad_spread/2, rad_mid + rad_spread/2))
         cr.fill()
-        cr.restore()
 
     @staticmethod
     def create_map_rect_to_sector(radius, rect, arc_used_ratio, start_rad, stop_rad):
@@ -1275,10 +1281,9 @@ class FanChartWidget(FanChartBaseWidget):
                 if person:
                     start, stop, state = self.angle[generation][p]
                     if state in [NORMAL, EXPANDED]:
-                        self.draw_person(cr, gender_code(p%2 == 0), 
-                                         text, start, stop, 
+                        self.draw_person(cr, person, start, stop, 
                                          generation, state, parents, child,
-                                         person, userdata)
+                                         userdata)
         cr.set_source_rgb(1, 1, 1) # white
         cr.move_to(0,0)
         cr.arc(0, 0, self.CENTER, 0, 2 * math.pi)
@@ -1290,21 +1295,10 @@ class FanChartWidget(FanChartBaseWidget):
         # Draw center person:
         (text, person, parents, child, userdata) = self.data[0][0]
         if person:
-            r, g, b, a = self.background_box(person, 0, userdata)
-            cr.arc(0, 0, self.CENTER, 0, 2 * math.pi)
-            if self.childring and child:
-                cr.arc_negative(0, 0, TRANSLATE_PX + CHILDRING_WIDTH, 2 * math.pi, 0)
-                cr.close_path()
-            cr.set_source_rgba(r/255, g/255, b/255, a)
-            cr.fill()
-            cr.save()
-            name = name_displayer.display(person)
-            self.draw_text(cr, name, self.CENTER - 
-                        (self.CENTER - (CHILDRING_WIDTH + TRANSLATE_PX))/2, 95, 455, 
-                        10, False,
-                        self.fontcolor(r, g, b, a), self.fontbold(a))
-            cr.restore()
-            #draw center to move chart
+            self.draw_person(cr, person, 90, 90+360,
+                             0, NORMAL, parents, child,
+                             userdata, is_central_person=True)
+            #draw center disk to move chart
             cr.set_source_rgb(0, 0, 0) # black
             cr.move_to(TRANSLATE_PX, 0)
             cr.arc(0, 0, TRANSLATE_PX, 0, 2 * math.pi)
@@ -1317,77 +1311,48 @@ class FanChartWidget(FanChartBaseWidget):
         if self.background in [BACKGROUND_GRAD_AGE, BACKGROUND_GRAD_PERIOD]:
             self.draw_gradient(cr, widget, halfdist)
 
-    def draw_person(self, cr, gender, name, start, stop, generation, 
-                    state, parents, child, person, userdata):
+    def draw_person(self, cr, person, start, stop, generation, 
+                    state, parents, child, userdata, is_central_person=False):
         """
         Display the piece of pie for a given person. start and stop
-        are in degrees. Gender is indication of father position or mother 
-        position in the chart
+        are in degrees. 
         """
         cr.save()
         start_rad = math.radians(start)
         stop_rad = math.radians(stop)
         r, g, b, a = self.background_box(person, generation, userdata)
-        radius = generation * PIXELS_PER_GENERATION + self.CENTER
+        radiusin,radiusout = ( (generation-1) * PIXELS_PER_GENERATION + self.CENTER, generation * PIXELS_PER_GENERATION + self.CENTER)
         # If max generation, and they have parents:
         if generation == self.generations - 1 and parents:
             # draw an indicator
-            radmax = radius + BORDER_EDGE_WIDTH
-            cr.move_to(radmax*math.cos(start_rad), radmax*math.sin(start_rad))
-            cr.arc(0, 0, radius + BORDER_EDGE_WIDTH, start_rad, stop_rad)
-            cr.line_to(radius*math.cos(stop_rad), radius*math.sin(stop_rad))
-            cr.arc_negative(0, 0, radius, stop_rad, start_rad)
-            cr.close_path()
-            ##path = cr.copy_path() # not working correct
-            cr.set_source_rgb(255, 255, 255) # white
-            cr.fill()
-            #and again for the border
-            cr.move_to(radmax*math.cos(start_rad), radmax*math.sin(start_rad))
-            cr.arc(0, 0, radius + BORDER_EDGE_WIDTH, start_rad, stop_rad)
-            cr.line_to(radius*math.cos(stop_rad), radius*math.sin(stop_rad))
-            cr.arc_negative(0, 0, radius, stop_rad, start_rad)
-            cr.close_path()
-            ##cr.append_path(path) # not working correct
-            cr.set_source_rgb(0, 0, 0) # black
-            cr.stroke()
+            color=(1.0, 1.0, 1.0, 1.0) # white
+            self.draw_radbox(cr, radiusout, radiusout + BORDER_EDGE_WIDTH, start_rad, stop_rad, color, thick=False)
         # now draw the person
-        cr.move_to(radius * math.cos(start_rad), radius * math.sin(start_rad))
-        cr.arc(0, 0, radius, start_rad, stop_rad)
-        radmin = radius - PIXELS_PER_GENERATION
-        cr.line_to(radmin * math.cos(stop_rad), radmin * math.sin(stop_rad))
-        cr.arc_negative(0, 0, radmin, stop_rad, start_rad)
-        cr.close_path()
-        ##path = cr.copy_path() # not working correct
-        cr.set_source_rgba(r/255., g/255., b/255., a) 
-        cr.fill()
-        #and again for the border
-        cr.move_to(radius * math.cos(start_rad), radius * math.sin(start_rad))
-        cr.arc(0, 0, radius, start_rad, stop_rad)
-        radmin = radius - PIXELS_PER_GENERATION
-        cr.line_to(radmin * math.cos(stop_rad), radmin * math.sin(stop_rad))
-        cr.arc_negative(0, 0, radmin, stop_rad, start_rad)
-        cr.close_path()
-        ##cr.append_path(path) # not working correct
-        cr.set_source_rgb(0, 0, 0) # black
-        if state == NORMAL: # normal
-            cr.set_line_width(1)
-        else: # EXPANDED
-            cr.set_line_width(3)
-        cr.stroke()
-        cr.set_line_width(1)
+        color=(r/255., g/255., b/255., a)
+        thick=(state == EXPANDED)
+        if not is_central_person:
+            self.draw_radbox(cr, radiusin, radiusout, start_rad, stop_rad, color, thick)
+        else:
+            # force radiusin and radius out
+            radiusin =  TRANSLATE_PX + CHILDRING_WIDTH
+            radiusout = self.CENTER
+            #special box for centrer pers
+            cr.arc(0, 0, radiusout, 0, 2 * math.pi)
+            if self.childring and len(self.childrenroot)>0:
+                cr.arc_negative(0, 0, radiusin, 2 * math.pi, 0)
+                cr.close_path()
+            cr.set_source_rgba(*color)
+            cr.fill()
+
         if self.last_x is None or self.last_y is None: 
             #we are not in a move, so draw text
             radial = False
-            radstart = radius - PIXELS_PER_GENERATION/2
             if self.radialtext: ## and generation >= 6:
-                spacepolartext = radstart * math.radians(stop-start)
-                if spacepolartext < PIXELS_PER_GENERATION * 1.1:
-                    # more space to print it radial
-                    radial = True
-                    radstart = radius - PIXELS_PER_GENERATION
-            self.draw_text(cr, name, radstart, start, stop, 
-                           PIXELS_PER_GENERATION, radial, 
-                           self.fontcolor(r, g, b, a), self.fontbold(a))
+                space_arc_text =  (radiusin+radiusout)/2 * (stop_rad-start_rad)
+                # is there more space to print it radial ?
+                radial= (space_arc_text < (radiusout-radiusin) * 1.1)
+            self.draw_person_text(cr, person, radiusin, radiusout, start_rad, stop_rad, 
+                           radial, self.fontcolor(r, g, b, a), self.fontbold(a))
         cr.restore()
 
     def draw_childring(self, cr):
