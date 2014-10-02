@@ -74,9 +74,14 @@ from .fanchart import *
 #-------------------------------------------------------------------------
 pi = math.pi
 
-PIXELS_PER_GENPERSON = 30 # size of radius for generation of children
-PIXELS_PER_GENFAMILY = 20 # size of radius for family 
+PIXELS_PER_GENPERSON_RATIO = 0.55 # ratio of generation radius for person (rest for partner)
+PIXELS_PER_GEN_SMALL = 80
+PIXELS_PER_GEN_LARGE = 160
+N_GEN_SMALL = 4 
+PIXELS_PER_GENFAMILY = 25 # size of radius for family 
 PIXELS_PER_RECLAIM = 4 # size of the radius of pixels taken from family to reclaim space
+PIXELS_PARTNER_GAP = 0 # Padding between someone and his partner
+PIXELS_CHILDREN_GAP = 5 # Padding between generations
 PARENTRING_WIDTH = 12      # width of the parent ring inside the person
 
 ANGLE_CHEQUI = 0   #Algorithm with homogeneous children distribution
@@ -93,7 +98,7 @@ class FanChartDescWidget(FanChartBaseWidget):
     """
     Interactive Fan Chart Widget. 
     """
-    CENTER = 60    # we require a larger center
+    CENTER = 40    # we require a larger center
 
     def __init__(self, dbstate, uistate, callback_popup=None):
         """
@@ -140,12 +145,6 @@ class FanChartDescWidget(FanChartBaseWidget):
         self.childring = False
         self.flipupsidedownname = flipupsidedownname
         self.twolinename = twolinename
-
-    def gen_pixels(self):
-        """
-        how many pixels a generation takes up in the fanchart
-        """
-        return PIXELS_PER_GENPERSON + PIXELS_PER_GENFAMILY
 
     def set_generations(self):
         """
@@ -399,9 +398,30 @@ class FanChartDescWidget(FanChartBaseWidget):
         Compute the half radius of the circle
         """
         nrgen = self.nrgen()
-        ringpxs = (PIXELS_PER_GENPERSON + PIXELS_PER_GENFAMILY) * (nrgen - 1)
-        return ringpxs + self.CENTER + BORDER_EDGE_WIDTH
+        radius = PIXELS_PER_GEN_SMALL * N_GEN_SMALL + PIXELS_PER_GEN_LARGE \
+                * ( nrgen - N_GEN_SMALL )
+        return radius + self.CENTER
 
+    def get_radiusinout_for_generation(self,generation):
+        radius_first_gen = self.CENTER - (1-PIXELS_PER_GENPERSON_RATIO) * PIXELS_PER_GEN_SMALL
+        if generation < N_GEN_SMALL:
+            radius_start = PIXELS_PER_GEN_SMALL * generation + radius_first_gen
+            return (radius_start,radius_start + PIXELS_PER_GEN_SMALL)
+        else:
+            radius_start = PIXELS_PER_GEN_SMALL * N_GEN_SMALL + PIXELS_PER_GEN_LARGE \
+                * ( generation - N_GEN_SMALL ) + radius_first_gen
+            return (radius_start,radius_start + PIXELS_PER_GEN_LARGE)
+
+    def get_radiusinout_for_generation_pair(self,generation):
+        radiusin, radiusout = self.get_radiusinout_for_generation(generation)
+        radius_spread = radiusout - radiusin - PIXELS_CHILDREN_GAP - PIXELS_PARTNER_GAP
+        
+        radiusin_pers = radiusin + PIXELS_CHILDREN_GAP
+        radiusout_pers = radiusin_pers + PIXELS_PER_GENPERSON_RATIO * radius_spread
+        radiusin_partner = radiusout_pers + PIXELS_PARTNER_GAP
+        radiusout_partner = radiusout
+        return (radiusin_pers,radiusout_pers,radiusin_partner,radiusout_partner)
+        
     def people_generator(self):
         """
         a generator over all people outside of the core person
@@ -472,17 +492,19 @@ class FanChartDescWidget(FanChartBaseWidget):
                 = self.gen2people[0][0]
         if person:
             r, g, b, a = self.background_box(person, 0, userdata)
-            cr.arc(0, 0, self.CENTER-PIXELS_PER_GENFAMILY, 0, 2 * math.pi)
+            radiusin_pers,radiusout_pers,radiusin_partner,radiusout_partner = \
+                self.get_radiusinout_for_generation_pair(0)
+            radiusin = CHILDRING_WIDTH + TRANSLATE_PX
+            radiusout = radiusout_pers
+            cr.arc(0, 0, radiusout, 0, 2 * math.pi)
             if self.parentsroot:
-                cr.arc_negative(0, 0, TRANSLATE_PX + CHILDRING_WIDTH,
+                cr.arc_negative(0, 0, radiusin,
                                 2 * math.pi, 0)
                 cr.close_path()
             cr.set_source_rgba(r/255, g/255, b/255, a)
             cr.fill()
             cr.save()
             name = name_displayer.display(person)
-            radiusin = CHILDRING_WIDTH + TRANSLATE_PX
-            radiusout = self.CENTER - PIXELS_PER_GENFAMILY
             self.draw_person_text(cr, person, radiusin, radiusout,
                         math.radians(90), math.radians(90 + 360), False,
                         self.fontcolor(r, g, b, a), self.fontbold(a))
@@ -499,28 +521,29 @@ class FanChartDescWidget(FanChartBaseWidget):
         #now write all the families and children
         cr.save()
         cr.rotate(self.rotate_value * math.pi/180)
-        radstart = self.CENTER - PIXELS_PER_GENFAMILY - PIXELS_PER_GENPERSON
-        for gen in range(self.generations-1):
-            radstart += PIXELS_PER_GENPERSON
-            for famdata in self.gen2fam[gen]:
-                # family, duplicate or not, start angle, slice size, 
-                #       text, spouse pos in gen, nrchildren, userdata, status
-                fam, dup, start, slice, text, posfam, nrchild, userdata,\
-                    partner, status = famdata
-                if status != COLLAPSED:
-                    self.draw_person(cr, start, slice, radstart, 
-                                     radstart + PIXELS_PER_GENFAMILY, gen, dup, 
-                                     partner, userdata, family=True, thick=status != NORMAL)
-            radstart += PIXELS_PER_GENFAMILY
-            for pdata in self.gen2people[gen+1]:
-                # person, duplicate or not, start angle, slice size,
-                #             text, parent pos in fam, nrfam, userdata, status
-                pers, dup, start, slice, text, pospar, nrfam, userdata, status = \
-                    pdata
-                if status != COLLAPSED:
-                    self.draw_person(cr, start, slice, radstart, 
-                                     radstart + PIXELS_PER_GENPERSON, gen+1, dup, 
-                                     pers, userdata, thick=status != NORMAL)
+        for gen in range(self.generations):
+            radiusin_pers,radiusout_pers,radiusin_partner,radiusout_partner = \
+                self.get_radiusinout_for_generation_pair(gen)
+            if gen > 0:
+                for pdata in self.gen2people[gen]:
+                    # person, duplicate or not, start angle, slice size,
+                    #             text, parent pos in fam, nrfam, userdata, status
+                    pers, dup, start, slice, text, pospar, nrfam, userdata, status = \
+                        pdata
+                    if status != COLLAPSED:
+                        self.draw_person(cr, start, slice, radiusin_pers, 
+                                         radiusout_pers, gen, dup, 
+                                         pers, userdata, thick=status != NORMAL)
+            if gen < self.generations-1:
+                for famdata in self.gen2fam[gen]:
+                    # family, duplicate or not, start angle, slice size, 
+                    #       text, spouse pos in gen, nrchildren, userdata, status
+                    fam, dup, start, slice, text, posfam, nrchild, userdata,\
+                        partner, status = famdata
+                    if status != COLLAPSED:
+                        self.draw_person(cr, start, slice, radiusin_partner, 
+                                         radiusout_partner, gen, dup, 
+                                         partner, userdata, family=True, thick=status != NORMAL)
         cr.restore()
         
         if self.background in [BACKGROUND_GRAD_AGE, BACKGROUND_GRAD_PERIOD]:
@@ -569,26 +592,64 @@ class FanChartDescWidget(FanChartBaseWidget):
                            radial, self.fontcolor(r, g, b, a), self.fontbold(a))
         cr.restore()
 
-    def boxtype(self, radius):
+
+    def person_under_cursor(self, curx, cury):
         """
-        default is only one type of box type
+        Determine the generation and the position in the generation at 
+        position x and y, as well as the type of box. 
+        generation = -1 on center black dot
+        generation >= self.generations outside of diagram
         """
-        if radius <= self.CENTER:
-            if radius >= self.CENTER - PIXELS_PER_GENFAMILY:
-                return TYPE_BOX_FAMILY
-            else:
-                return TYPE_BOX_NORMAL
+        # compute angle, radius, find out who would be there (rotated)
+
+        # center coordinate
+        cx = self.center_x
+        cy = self.center_y
+        radius = math.sqrt((curx - cx) ** 2 + (cury - cy) ** 2)
+        btype = TYPE_BOX_NORMAL
+        if radius < TRANSLATE_PX:
+            generation = -1
+        elif (self.childring and self.angle[-2] and 
+                    radius < TRANSLATE_PX + CHILDRING_WIDTH):
+            generation = -2  # indication of one of the children
+        elif radius < self.CENTER:
+            generation = 0
         else:
-            gen = int((radius - self.CENTER)/self.gen_pixels()) + 1
-            radius = (radius - self.CENTER) % PIXELS_PER_GENERATION
-            if radius >= PIXELS_PER_GENPERSON:
-                if gen < self.generations - 1:
-                    return TYPE_BOX_FAMILY
-                else:
-                    # the last generation has no family boxes
-                    None
-            else:
-                return TYPE_BOX_NORMAL
+            generation = self.generations
+            for gen in range(self.generations-1):
+                radiusin_pers,radiusout_pers,radiusin_partner,radiusout_partner \
+                    = self.get_radiusinout_for_generation_pair(gen)
+                if radiusin_pers <= radius <= radiusout_pers:
+                    generation, btype = gen, TYPE_BOX_NORMAL
+                    break
+                if radiusin_partner <= radius <= radiusout_partner:
+                    generation, btype = gen, TYPE_BOX_FAMILY
+                    break
+
+        rads = math.atan2( (cury - cy), (curx - cx) )
+        if rads < 0: # second half of unit circle
+            rads = math.pi + (math.pi + rads)
+        #angle before rotation:
+        pos = ((rads/(math.pi * 2) - self.rotate_value/360.) * 360.0) % 360
+        #children are in cairo angle (clockwise) from pi to 3 pi
+        #rads however is clock 0 to 2 pi
+        if rads < math.pi:
+            rads += 2 * math.pi
+        # if generation is in expand zone:
+        # FIXME: add a way of expanding 
+        # find what person is in this position:
+        selected = None
+        if (0 <= generation < self.generations):
+            selected = self.personpos_at_angle(generation, pos, btype)
+        elif generation == -2:
+            for p in range(len(self.angle[generation])):
+                start, stop, state = self.angle[generation][p]
+                if start <= rads <= stop:
+                    selected = p
+                    break
+            
+        return generation, selected, btype
+
 
     def draw_parentring(self, cr):
         cr.move_to(TRANSLATE_PX + CHILDRING_WIDTH, 0)

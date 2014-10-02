@@ -272,6 +272,9 @@ class FanChartBaseWidget(Gtk.DrawingArea):
         how many pixels a generation takes up in the fanchart
         """
         raise NotImplementedError
+    
+    def get_radiusinout_for_generation(self,generation):
+        raise NotImplementedError
 
     def on_draw(self, widget, cr, scale=1.):
         """
@@ -789,7 +792,12 @@ class FanChartBaseWidget(Gtk.DrawingArea):
         elif radius < self.CENTER:
             generation = 0
         else:
-            generation = int((radius - self.CENTER)/self.gen_pixels()) + 1
+            generation = self.generations
+            for gen in range(self.generations-1):
+                radiusin,radiusout = self.get_radiusinout_for_generation(gen)
+                if radiusin <= radius <= radiusout:
+                    generation = gen
+                    break
         btype = self.boxtype(radius)
 
         rads = math.atan2( (cury - cy), (curx - cx) )
@@ -1225,6 +1233,13 @@ class FanChartWidget(FanChartBaseWidget):
         nrgen = self.nrgen()
         return PIXELS_PER_GENERATION * nrgen + self.CENTER + BORDER_EDGE_WIDTH
 
+    def get_radiusinout_for_generation(self,generation):
+        outerradius=generation * PIXELS_PER_GENERATION + self.CENTER
+        innerradius=(generation-1) * PIXELS_PER_GENERATION + self.CENTER
+        if generation==0:
+            innerradius= CHILDRING_WIDTH + TRANSLATE_PX
+        return (innerradius,outerradius)
+        
     def people_generator(self):
         """
         a generator over all people outside of the core person
@@ -1325,7 +1340,7 @@ class FanChartWidget(FanChartBaseWidget):
         start_rad = math.radians(start)
         stop_rad = math.radians(stop)
         r, g, b, a = self.background_box(person, generation, userdata)
-        radiusin,radiusout = ( (generation-1) * PIXELS_PER_GENERATION + self.CENTER, generation * PIXELS_PER_GENERATION + self.CENTER)
+        radiusin,radiusout = self.get_radiusinout_for_generation(generation)
         # If max generation, and they have parents:
         if generation == self.generations - 1 and parents:
             # draw an indicator
@@ -1337,9 +1352,6 @@ class FanChartWidget(FanChartBaseWidget):
         if not is_central_person:
             self.draw_radbox(cr, radiusin, radiusout, start_rad, stop_rad, color, thick)
         else:
-            # force radiusin and radius out
-            radiusin =  TRANSLATE_PX + CHILDRING_WIDTH
-            radiusout = self.CENTER
             #special box for centrer pers
             cr.arc(0, 0, radiusout, 0, 2 * math.pi)
             if self.childring and len(self.childrenroot)>0:
