@@ -199,9 +199,8 @@ class FanChartBaseWidget(Gtk.DrawingArea):
 
         self._mouse_click = False
         self.rotate_value = 90 # degrees, initially, 1st gen male on right half
-        self.center_xy = [0, 0] # distance from center (x, y)
-        self.center_x = 0
-        self.center_y = 0
+        self.center_delta_xy = [0, 0] # translation of the center of the fan wrt canonical center
+        self.center_xy = [0, 0] # coord of the center of the fan
         self.mouse_x = 0
         self.mouse_y = 0
         #(re)compute everything
@@ -755,11 +754,9 @@ class FanChartBaseWidget(Gtk.DrawingArea):
         gradheight = 10
         starth = 15
         startw = 5
-        alloc = self.get_allocation()
-        x, y, w, h = alloc.x, alloc.y, alloc.width, alloc.height
         cr.save()
 
-        cr.translate(-self.center_x, -self.center_y)
+        cr.translate(-self.center_xy[0], -self.center_xy[1])
 
         font = Pango.FontDescription(self.fontdescr)
         fontsize = self.fontsize
@@ -787,9 +784,8 @@ class FanChartBaseWidget(Gtk.DrawingArea):
         # compute angle, radius, find out who would be there (rotated)
 
         # center coordinate
-        cx = self.center_x
-        cy = self.center_y
-        radius = math.sqrt((curx - cx) ** 2 + (cury - cy) ** 2)
+        fanxy = curx - self.center_xy[0], cury - self.center_xy[1]
+        radius = math.sqrt((fanxy[0]) ** 2 + (fanxy[1]) ** 2)
         if radius < TRANSLATE_PX:
             generation = -1
         elif (self.childring and self.angle[-2] and 
@@ -806,7 +802,7 @@ class FanChartBaseWidget(Gtk.DrawingArea):
                     break
         btype = self.boxtype(radius)
 
-        rads = math.atan2( (cury - cy), (curx - cx) )
+        rads = math.atan2( fanxy[1], fanxy[0])
         if rads < 0: # second half of unit circle
             rads = math.pi + (math.pi + rads)
         #angle before rotation:
@@ -946,25 +942,14 @@ class FanChartBaseWidget(Gtk.DrawingArea):
             return False
         
         #translate or rotate should happen
-        alloc = self.get_allocation()
-        x, y, w, h = alloc.x, alloc.y, alloc.width, alloc.height
         if self.translating:
-            if self.form == FORM_CIRCLE:
-                self.center_xy = w/2 - event.x, h/2 - event.y
-            elif self.form == FORM_HALFCIRCLE:
-                self.center_xy = w/2 - event.x, h - self.CENTER - PAD_PX - event.y
-            elif self.form == FORM_QUADRANT:
-                self.center_xy = self.CENTER + PAD_PX - event.x, h - self.CENTER - PAD_PX - event.y
+            canonical_center = self.center_xy_from_delta([0,0])
+            self.center_delta_xy = canonical_center[0]-event.x,canonical_center[1]-event.y
+            self.center_xy = self.center_xy_from_delta()
         else:
-            cx = w/2 - self.center_xy[0]
-            cy = h/2 - self.center_xy[1]
             # get the angles of the two points from the center:
-            start_angle = math.atan2(event.y - cy, event.x - cx)
-            end_angle = math.atan2(self.last_y - cy, self.last_x - cx)
-            if start_angle < 0: # second half of unit circle
-                start_angle = math.pi + (math.pi + start_angle)
-            if end_angle < 0: # second half of unit circle
-                end_angle = math.pi + (math.pi + end_angle)
+            start_angle = math.atan2(event.y - self.center_xy[1], event.x - self.center_xy[0])
+            end_angle = math.atan2(self.last_y - self.center_xy[1], self.last_x - self.center_xy[0])
             # now look at change in angle:
             diff_angle = (end_angle - start_angle) % (math.pi * 2.0)
             self.rotate_value -= math.degrees(diff_angle)
@@ -972,6 +957,18 @@ class FanChartBaseWidget(Gtk.DrawingArea):
         self.queue_draw()
         return True
 
+    def center_xy_from_delta(self, delta=None):
+        alloc = self.get_allocation()
+        x, y, w, h = alloc.x, alloc.y, alloc.width, alloc.height
+        if delta is None: delta = self.center_delta_xy
+        if self.form == FORM_CIRCLE:
+            canvas_xy = w/2 - delta[0], h/2 - delta[1]
+        elif self.form == FORM_HALFCIRCLE:
+            canvas_xy = w/2 - delta[0], h - self.CENTER - PAD_PX - delta[1]
+        elif self.form == FORM_QUADRANT:
+            canvas_xy = self.CENTER + PAD_PX - delta[0], h - self.CENTER - PAD_PX - delta[1]
+        return canvas_xy
+    
     def do_mouse_click(self):
         """
         action to take on left mouse click
@@ -987,15 +984,6 @@ class FanChartBaseWidget(Gtk.DrawingArea):
             return True
         if self.translating:
             self.translating = False
-            alloc = self.get_allocation()
-            x, y, w, h = alloc.x, alloc.y, alloc.width, alloc.height
-            if self.form == FORM_CIRCLE:
-                self.center_xy = w/2 - event.x, h/2 - event.y
-                self.center_xy = w/2 - event.x, h/2 - event.y
-            elif self.form == FORM_HALFCIRCLE:
-                self.center_xy = w/2 - event.x, h - self.CENTER - PAD_PX - event.y
-            elif self.form == FORM_QUADRANT:
-                self.center_xy = self.CENTER + PAD_PX - event.x, h - self.CENTER - PAD_PX - event.y
         
         self.last_x, self.last_y = None, None
         self.queue_draw()
@@ -1277,24 +1265,11 @@ class FanChartWidget(FanChartBaseWidget):
                 self.set_size_request(2 * halfdist, halfdist + self.CENTER + PAD_PX)
             elif self.form == FORM_QUADRANT:
                 self.set_size_request(halfdist + self.CENTER + PAD_PX, halfdist + self.CENTER + PAD_PX)
-            
-            #obtain the allocation
-            alloc = self.get_allocation()
-            x, y, w, h = alloc.x, alloc.y, alloc.width, alloc.height
 
         cr.scale(scale, scale)
-        # when printing, we need not recalculate
         if widget:
-            if self.form == FORM_CIRCLE:
-                self.center_x = w/2 - self.center_xy[0]
-                self.center_y = h/2 - self.center_xy[1]
-            elif self.form == FORM_HALFCIRCLE:
-                self.center_x = w/2. - self.center_xy[0]
-                self.center_y = h - self.CENTER - PAD_PX- self.center_xy[1]
-            elif self.form == FORM_QUADRANT:
-                self.center_x = self.CENTER + PAD_PX - self.center_xy[0]
-                self.center_y = h - self.CENTER - PAD_PX - self.center_xy[1]
-        cr.translate(self.center_x, self.center_y)
+            self.center_xy = self.center_xy_from_delta()
+        cr.translate(*self.center_xy)
 
         cr.save()
         cr.rotate(math.radians(self.rotate_value))

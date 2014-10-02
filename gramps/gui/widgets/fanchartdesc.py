@@ -458,24 +458,12 @@ class FanChartDescWidget(FanChartBaseWidget):
             elif self.form == FORM_QUADRANT:
                 self.set_size_request(halfdist + self.CENTER + PAD_PX,
                                       halfdist + self.CENTER + PAD_PX)
-            
-            #obtain the allocation
-            alloc = self.get_allocation()
-            x, y, w, h = alloc.x, alloc.y, alloc.width, alloc.height
 
         cr.scale(scale, scale)
         # when printing, we need not recalculate
         if widget:
-            if self.form == FORM_CIRCLE:
-                self.center_x = w/2 - self.center_xy[0]
-                self.center_y = h/2 - self.center_xy[1]
-            elif self.form == FORM_HALFCIRCLE:
-                self.center_x = w/2. - self.center_xy[0]
-                self.center_y = h - self.CENTER - PAD_PX- self.center_xy[1]
-            elif self.form == FORM_QUADRANT:
-                self.center_x = self.CENTER + PAD_PX - self.center_xy[0]
-                self.center_y = h - self.CENTER - PAD_PX - self.center_xy[1]
-        cr.translate(self.center_x, self.center_y)
+            self.center_xy = self.center_xy_from_delta()
+        cr.translate(*self.center_xy)
 
         cr.save()
         #draw center
@@ -603,9 +591,8 @@ class FanChartDescWidget(FanChartBaseWidget):
         # compute angle, radius, find out who would be there (rotated)
 
         # center coordinate
-        cx = self.center_x
-        cy = self.center_y
-        radius = math.sqrt((curx - cx) ** 2 + (cury - cy) ** 2)
+        fanxy = curx - self.center_xy[0], cury - self.center_xy[1]
+        radius = math.sqrt((fanxy[0]) ** 2 + (fanxy[1]) ** 2)
         btype = TYPE_BOX_NORMAL
         if radius < TRANSLATE_PX:
             generation = -1
@@ -626,7 +613,7 @@ class FanChartDescWidget(FanChartBaseWidget):
                     generation, btype = gen, TYPE_BOX_FAMILY
                     break
 
-        rads = math.atan2( (cury - cy), (curx - cx) )
+        rads = math.atan2( fanxy[1], fanxy[0])
         if rads < 0: # second half of unit circle
             rads = math.pi + (math.pi + rads)
         #angle before rotation:
