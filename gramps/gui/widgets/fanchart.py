@@ -1122,21 +1122,19 @@ class FanChartWidget(FanChartBaseWidget):
             self.angle[-2] = []
         self.data = {}
         self.childrenroot = []
+        self.rootangle = [0, 360]
+        if self.form == FORM_HALFCIRCLE:
+            self.rootangle = [90, 270]
+        elif self.form == FORM_QUADRANT:
+            self.rootangle = [180, 270]
         for i in range(self.generations):
             # name, person, parents?, children?
             self.data[i] = [(None,) * 5] * 2 ** i
             self.angle[i] = []
-            factor = 1
-            angle = 0
-            if self.form == FORM_HALFCIRCLE:
-                factor = 1/2
-                angle = 90
-            elif self.form == FORM_QUADRANT:
-                angle = 180
-                factor = 1/4
-            slice = 360.0 / (2 ** i) * factor
+            angle = self.rootangle[0]
+            slice = 1/ (2 ** i) * (self.rootangle[1] - self.rootangle[0])
             for count in range(len(self.data[i])):
-                # start, stop, male, state
+                # start, stop, state
                 self.angle[i].append([angle, angle + slice, NORMAL])
                 angle += slice
 
