@@ -629,10 +629,10 @@ class FanChartBaseWidget(Gtk.DrawingArea):
         #  2. now draw this text
         # offset for cairo-font system is 90
         if (math.degrees(start_rad) + self.rotate_value - 90) % 360 < 179:
-            angle = (start_rad + stop_rad)/2 + math.pi
+            angle = (start_rad + stop_rad)/2 + (h / radiusin / 2) + math.pi
             start_pos = -radiusout + PAD_TEXT
         else:
-            angle = (start_rad + stop_rad)/2
+            angle = (start_rad + stop_rad)/2 - (h / radiusin / 2)
             start_pos = radiusin + PAD_TEXT
         cr.rotate(angle)
         layout.context_changed()
