@@ -137,7 +137,7 @@ TYPE_BOX_FAMILY = 1
 
 class FanChartBaseWidget(Gtk.DrawingArea):
     """ a base widget for fancharts"""
-    CENTER = 50                # pixel radius of center, changes per fanchart
+    CENTER = 60                # pixel radius of center, changes per fanchart
 
     def __init__(self, dbstate, uistate, callback_popup=None):
         GObject.GObject.__init__(self)
@@ -156,6 +156,8 @@ class FanChartBaseWidget(Gtk.DrawingArea):
         self.last_x, self.last_y = None, None
         self.fontdescr = "Sans"
         self.fontsize = 8
+        self.twolineformat_nums=(name_displayer.add_name_format('fanchart_name_line1', '%l'),
+                                 name_displayer.add_name_format('fanchart_name_line2', '%f %s'))
         self.connect("button_release_event", self.on_mouse_up)
         self.connect("motion_notify_event", self.on_mouse_move)
         self.connect("button-press-event", self.on_mouse_down)
@@ -205,6 +207,10 @@ class FanChartBaseWidget(Gtk.DrawingArea):
         #(re)compute everything
         self.reset()
         self.set_size_request(120, 120)
+
+    def __del__(self):
+        for num in self.twolineformat_nums:
+            name_displayer.del_name_format(num)
 
     def reset(self):
         """
@@ -548,9 +554,33 @@ class FanChartBaseWidget(Gtk.DrawingArea):
                   radial=False, fontcolor=(0, 0, 0), bold=False):
         if not person: return
         draw_radial = radial and self.radialtext
-        name=name_displayer.display(person)
-        self.draw_text(cr, name, radiusin, radiusout, start, stop, draw_radial, 
-                   fontcolor, bold)
+        if not self.twolinename:
+            name=name_displayer.display(person)
+            self.draw_text(cr, name, radiusin, radiusout, start, stop, draw_radial, 
+                       fontcolor, bold)
+        else:
+            text=name_displayer.display(person)
+            text_line1=name_displayer.display_format(person,self.twolineformat_nums[0])
+            text_line2=name_displayer.display_format(person,self.twolineformat_nums[1])
+            if draw_radial:
+                split_frac_line1=0.5
+                if (math.degrees(start) + self.rotate_value - 90) % 360 < 179 and self.flipupsidedownname:
+                    middle=(start*split_frac_line1+stop*(1.0-split_frac_line1))
+                    (a11,a12,a21,a22)=(middle,stop,start,middle)
+                else:
+                    middle=(start*(1.0-split_frac_line1)+stop*split_frac_line1)
+                    (a11,a12,a21,a22)=(start,middle,middle,stop)
+                written_textwidth=self.draw_text(cr, text_line1, radiusin, radiusout, a11, a12, draw_radial, fontcolor, bold=1)
+                if written_textwidth == 0 and text_line1 != "":
+                    #Not enought space for 2 line, fallback to 1 line
+                    written_textwidth=self.draw_text(cr, text_line1, radiusin, radiusout, start, stop, draw_radial, fontcolor, bold=1)
+                    self.draw_text(cr, text_line2, radiusin+written_textwidth+PAD_TEXT, radiusout, start, stop, draw_radial, fontcolor, bold)
+                else:
+                    self.draw_text(cr, text_line2, radiusin, radiusout, a21, a22, draw_radial, fontcolor, bold)
+            else:
+                middle=(radiusin*.5+radiusout*.5)
+                self.draw_text(cr, text_line1, middle, radiusout, start, stop, draw_radial, fontcolor, bold=1)
+                self.draw_text(cr, text_line2, radiusin, middle, start, stop, draw_radial, fontcolor, bold=0)
 
     def wrap_truncate_layout(self, layout, font, width_pixels):
         """
@@ -1029,13 +1059,13 @@ class FanChartWidget(FanChartBaseWidget):
         Fan Chart Widget. Handles visualization of data in self.data.
         See main() of FanChartGramplet for example of model format.
         """
-        self.set_values(None, 9, BACKGROUND_GRAD_GEN, True, True, True, 'Sans', '#0000FF',
+        self.set_values(None, 9, BACKGROUND_GRAD_GEN, True, True, True, True, 'Sans', '#0000FF',
                     '#FF0000', None, 0.5, FORM_CIRCLE)
         FanChartBaseWidget.__init__(self, dbstate, uistate, callback_popup)
 
-    def set_values(self, root_person_handle, maxgen, background, childring,
-              flipupsidedownname, radialtext, fontdescr, grad_start, grad_end,
-              filter, alpha_filter, form):
+    def set_values(self, root_person_handle, maxgen, background, childring, 
+              flipupsidedownname, twolinename, radialtext, fontdescr, 
+              grad_start, grad_end, filter, alpha_filter, form):
         """
         Reset the values to be used:
          
@@ -1044,6 +1074,7 @@ class FanChartWidget(FanChartBaseWidget):
         :param background: config setting of which background procedure to use
         :type background: int
         :param childring: to show the center ring with children or not
+        :param twolinename: uses two lines for the display of person's name
         :param flipupsidedownname: flip name on the left of the fanchart for the display of person's name
         :param radialtext: try to use radial text or not
         :param fontdescr: string describing the font to use
@@ -1058,6 +1089,7 @@ class FanChartWidget(FanChartBaseWidget):
         self.generations = maxgen
         self.radialtext = radialtext
         self.childring = childring
+        self.twolinename = twolinename
         self.flipupsidedownname = flipupsidedownname
         self.background = background
         self.fontdescr = fontdescr
@@ -1517,7 +1549,7 @@ class FanChartGrampsGUI(object):
         """
         root_person_handle = self.get_active('Person')
         self.fan.set_values(root_person_handle, self.maxgen, self.background,
-                        self.childring, self.flipupsidedownname, self.radialtext, self.fonttype,
+                        self.childring, self.flipupsidedownname, self.twolinename, self.radialtext, self.fonttype,
                         self.grad_start, self.grad_end,
                         self.generic_filter, self.alpha_filter, self.form)
         self.fan.reset()

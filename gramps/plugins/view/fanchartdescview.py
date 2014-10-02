@@ -59,6 +59,7 @@ class FanChartDescView(fanchartdesc.FanChartDescGrampsGUI, NavigationView):
         ('interface.fanview-maxgen', 9),
         ('interface.fanview-background', fanchart.BACKGROUND_GRAD_GEN),
         ('interface.fanview-radialtext', True),
+        ('interface.fanview-twolinename', True),
         ('interface.fanview-flipupsidedownname', True),
         ('interface.fanview-font', 'Sans'),
         ('interface.fanview-form', fanchart.FORM_CIRCLE),
@@ -80,6 +81,7 @@ class FanChartDescView(fanchartdesc.FanChartDescGrampsGUI, NavigationView):
         self.maxgen = self._config.get('interface.fanview-maxgen') 
         self.background = self._config.get('interface.fanview-background')
         self.radialtext = self._config.get('interface.fanview-radialtext')
+        self.twolinename = self._config.get('interface.fanview-twolinename')
         self.flipupsidedownname = self._config.get('interface.fanview-flipupsidedownname')
         self.fonttype = self._config.get('interface.fanview-font')
         
@@ -330,10 +332,15 @@ class FanChartDescView(fanchartdesc.FanChartDescGrampsGUI, NavigationView):
                         ),
                         callback=self.cb_update_anglealgo)
 
+        # show names one two line
+        configdialog.add_checkbox(table, 
+                _('Show names on two lines'), 
+                8, 'interface.fanview-twolinename')
+
         # Flip names
         configdialog.add_checkbox(table, 
                 _('Flip name on the left of the fan'), 
-                8, 'interface.fanview-flipupsidedownname')
+                9, 'interface.fanview-flipupsidedownname')
 
         return _('Layout'), table
 
@@ -351,10 +358,19 @@ class FanChartDescView(fanchartdesc.FanChartDescGrampsGUI, NavigationView):
                           self.cb_update_color)
         self._config.connect('interface.fanview-flipupsidedownname',
                           self.cb_update_flipupsidedownname)
+        self._config.connect('interface.fanview-twolinename',
+                          self.cb_update_twolinename)
 
     def cb_update_maxgen(self, spinbtn, constant):
         self.maxgen = spinbtn.get_value_as_int()
         self._config.set(constant, self.maxgen)
+        self.update()
+
+    def cb_update_twolinename(self, client, cnxn_id, entry, data):
+        """
+        Called when the configuration menu changes the twolinename setting. 
+        """
+        self.twolinename = (entry == 'True')
         self.update()
 
     def cb_update_background(self, obj, constant):

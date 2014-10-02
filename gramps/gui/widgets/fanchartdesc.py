@@ -100,11 +100,11 @@ class FanChartDescWidget(FanChartBaseWidget):
         Fan Chart Widget. Handles visualization of data in self.data.
         See main() of FanChartGramplet for example of model format.
         """
-        self.set_values(None, 9, True, BACKGROUND_GRAD_GEN, 'Sans', '#0000FF',
+        self.set_values(None, 9, True, True, BACKGROUND_GRAD_GEN, 'Sans', '#0000FF',
                     '#FF0000', None, 0.5, FORM_CIRCLE, ANGLE_WEIGHT, '#888a85')
         FanChartBaseWidget.__init__(self, dbstate, uistate, callback_popup)
 
-    def set_values(self, root_person_handle, maxgen, flipupsidedownname, background,
+    def set_values(self, root_person_handle, maxgen, flipupsidedownname, twolinename, background,
               fontdescr, grad_start, grad_end,
               filter, alpha_filter, form, angle_algo, dupcolor):
         """
@@ -139,6 +139,7 @@ class FanChartDescWidget(FanChartBaseWidget):
         self.dupcolor = hex_to_rgb(dupcolor)
         self.childring = False
         self.flipupsidedownname = flipupsidedownname
+        self.twolinename = twolinename
 
     def gen_pixels(self):
         """
@@ -713,7 +714,7 @@ class FanChartDescGrampsGUI(FanChartGrampsGUI):
         data.
         """
         root_person_handle = self.get_active('Person')
-        self.fan.set_values(root_person_handle, self.maxgen, self.flipupsidedownname, self.background,
+        self.fan.set_values(root_person_handle, self.maxgen, self.flipupsidedownname, self.twolinename, self.background,
                         self.fonttype, self.grad_start, self.grad_end,
                         self.generic_filter, self.alpha_filter, self.form,
                         self.angle_algo, self.dupcolor)
