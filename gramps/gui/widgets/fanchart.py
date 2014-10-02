@@ -585,12 +585,12 @@ class FanChartBaseWidget(Gtk.DrawingArea):
                 self.draw_text(cr, text_line1, middle, radiusout, start, stop, draw_radial, fontcolor, bold=1)
                 self.draw_text(cr, text_line2, radiusin, middle, start, stop, draw_radial, fontcolor, bold=0)
 
-    def wrap_truncate_layout(self, layout, font, width_pixels):
+    def wrap_truncate_layout(self, layout, font, width_pixels, height_pixels, tryrescale=True):
         """
         Uses the layout to wrap and truncate its text to given width
         Returns: (w,h) as returned by layout.get_pixel_size()
         """
-
+        all_text_backup = layout.get_text()
         layout.set_font_description(font)
         layout.set_width(Pango.SCALE * width_pixels)
 
@@ -599,6 +599,23 @@ class FanChartBaseWidget(Gtk.DrawingArea):
         if layout.get_line_count() > 1:
             layout.set_text(layout.get_text(), layout.get_line(0).length)
 
+        #2. we check if height is ok
+        w, h = layout.get_pixel_size()
+        if h > height_pixels:
+            if tryrescale:
+                #try to reduce the height
+                fontsize = max(height_pixels / h * font.get_size() /1.1, font.get_size()/2.0)
+                font.set_size(fontsize)
+                layout.set_text(all_text_backup, len(all_text_backup)) # reducing the height allows for more characters
+                layout.set_font_description(font)
+                if layout.get_line_count() > 1:
+                    layout.set_text(layout.get_text(), layout.get_line(0).length)
+                w, h = layout.get_pixel_size()
+            # we check again if height is ok
+            if h > height_pixels:
+                #we could not fix it, no text
+                layout.set_text("",0)
+        layout.context_changed()
         return layout.get_pixel_size()
 
     def draw_text(self, cr, text, radiusin, radiusout, start_rad, stop_rad,
@@ -631,19 +648,8 @@ class FanChartBaseWidget(Gtk.DrawingArea):
         avail_height = (stop_rad - start_rad) * radiusin - 2.0 * PAD_TEXT 
         avail_width = radiusout - radiusin - 2.0 * PAD_TEXT
 
-        w, h = self.wrap_truncate_layout(layout, font, avail_width)
+        w, h = self.wrap_truncate_layout(layout, font, avail_width, avail_height, tryrescale=True)
 
-        #1. we check if height is ok
-        if h > avail_height:
-            #try to reduce the height
-            fontsize = max(avail_height / h * font.get_size() /1.1, font.get_size()/2.0)
-            font.set_size(fontsize)
-            layout.set_text(text, len(text)) # reducing the height allows for more characters
-            w, h = self.wrap_truncate_layout(layout, font, avail_width)
-            # we check again if height is ok
-            if h > avail_height:
-                #we could not fix it, no text
-                text = ""
         #  2. now draw this text
         # offset for cairo-font system is 90
         if (math.degrees(start_rad) + self.rotate_value - 90) % 360 < 179 and self.flipupsidedownname:
@@ -676,7 +682,7 @@ class FanChartBaseWidget(Gtk.DrawingArea):
         avail_height = radiusout - radiusin - 2.0 * PAD_TEXT
         avail_width = (stop_rad - start_rad) * radius_text - 2.0 * PAD_TEXT
 
-        w, h = self.wrap_truncate_layout(layout, font, avail_width)
+        w, h = self.wrap_truncate_layout(layout, font, avail_width, avail_height, tryrescale=True)
 
         rad_padding = PAD_TEXT / radius_text
         # 2. Compute text position start angle
