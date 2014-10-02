@@ -616,7 +616,7 @@ class FanChartDescWidget(FanChartBaseWidget):
             generation = 0
         else:
             generation = self.generations
-            for gen in range(self.generations-1):
+            for gen in range(self.generations):
                 radiusin_pers,radiusout_pers,radiusin_partner,radiusout_partner \
                     = self.get_radiusinout_for_generation_pair(gen)
                 if radiusin_pers <= radius <= radiusout_pers:
@@ -685,7 +685,7 @@ class FanChartDescWidget(FanChartBaseWidget):
                 if start <= angle <= stop:
                     selected = p
                     break
-        elif btype == TYPE_BOX_FAMILY:
+        elif btype == TYPE_BOX_FAMILY and generation < self.generations -1:
             for p, pdata in enumerate(self.gen2fam[generation]):
                 # person, duplicate or not, start angle, slice size,
                 #             text, parent pos in fam, nrfam, userdata, status
