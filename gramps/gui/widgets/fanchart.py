@@ -624,7 +624,7 @@ class FanChartBaseWidget(Gtk.DrawingArea):
     def draw_radial_text(self, cr, text, radiusin, radiusout, start_rad, stop_rad, font):
         layout = self.create_pango_layout(text)
         layout.set_font_description(font)
-        layout.set_wrap(Pango.WrapMode.CHAR)
+        layout.set_wrap(Pango.WrapMode.WORD_CHAR)
 
         # compute available text space
         # NOTE: for radial text, the sector radius height is the text width 
@@ -666,7 +666,7 @@ class FanChartBaseWidget(Gtk.DrawingArea):
         """
         layout = self.create_pango_layout(text)
         layout.set_font_description(font)
-        layout.set_wrap(Pango.WrapMode.CHAR)
+        layout.set_wrap(Pango.WrapMode.WORD_CHAR)
 
         # get height of text:
         textheight=layout.get_size()[1]/Pango.SCALE
