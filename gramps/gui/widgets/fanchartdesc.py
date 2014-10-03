@@ -397,10 +397,9 @@ class FanChartDescWidget(FanChartBaseWidget):
         """
         Compute the half radius of the circle
         """
-        nrgen = self.nrgen()
         radius = PIXELS_PER_GEN_SMALL * N_GEN_SMALL + PIXELS_PER_GEN_LARGE \
-                * ( nrgen - N_GEN_SMALL )
-        return radius + self.CENTER
+                * ( self.nrgen() - N_GEN_SMALL ) + self.CENTER
+        return radius
 
     def get_radiusinout_for_generation(self,generation):
         radius_first_gen = self.CENTER - (1-PIXELS_PER_GENPERSON_RATIO) * PIXELS_PER_GEN_SMALL
@@ -663,24 +662,18 @@ class FanChartDescWidget(FanChartBaseWidget):
         """
         angle = angledeg / 360 * 2 * pi
         selected = None
+        datas = None
         if btype == TYPE_BOX_NORMAL:
-            for p, pdata in enumerate(self.gen2people[generation]):
-                # person, duplicate or not, start angle, slice size,
-                #             text, parent pos in fam, nrfam, userdata, status
-                start = pdata[2]
-                stop = start + pdata[3]
-                if start <= angle <= stop:
-                    selected = p
-                    break
+            datas = self.gen2people[generation]
         elif btype == TYPE_BOX_FAMILY and generation < self.generations -1:
-            for p, pdata in enumerate(self.gen2fam[generation]):
-                # person, duplicate or not, start angle, slice size,
-                #             text, parent pos in fam, nrfam, userdata, status
-                start = pdata[2]
-                stop = start + pdata[3]
-                if start <= angle <= stop:
-                    selected = p
-                    break
+            datas = self.gen2fam[generation]
+        for p, pdata in enumerate(datas):
+            # person, duplicate or not, start angle, slice size,
+            #             text, parent pos in fam, nrfam, userdata, status
+            start, stop = pdata[2], pdata[2] + pdata[3]
+            if start <= rads <= stop:
+                selected = p
+                break
         return selected
 
     def person_at(self, generation, pos, btype):
