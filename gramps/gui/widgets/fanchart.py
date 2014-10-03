@@ -1067,17 +1067,17 @@ class FanChartWidget(FanChartBaseWidget):
             self.angle[-2] = []
         self.data = {}
         self.childrenroot = []
-        self.rootangle = [0, 360]
+        self.rootangle_rad = [math.radians(0), math.radians(360)]
         if self.form == FORM_HALFCIRCLE:
-            self.rootangle = [90, 270]
+            self.rootangle_rad = [math.radians(90), math.radians(270)]
         elif self.form == FORM_QUADRANT:
-            self.rootangle = [180, 270]
+            self.rootangle_rad = [math.radians(180), math.radians(270)]
         for i in range(self.generations):
             # name, person, parents?, children?
             self.data[i] = [(None,) * 5] * 2 ** i
             self.angle[i] = []
-            angle = self.rootangle[0]
-            slice = 1/ (2 ** i) * (self.rootangle[1] - self.rootangle[0])
+            angle = self.rootangle_rad[0]
+            slice = 1/ (2 ** i) * (self.rootangle_rad[1] - self.rootangle_rad[0])
             for count in range(len(self.data[i])):
                 # start, stop, state
                 self.angle[i].append([angle, angle + slice, NORMAL])
@@ -1250,7 +1250,7 @@ class FanChartWidget(FanChartBaseWidget):
         # Draw center person:
         (text, person, parents, child, userdata) = self.data[0][0]
         if person:
-            self.draw_person(cr, person, 90, 90+360,
+            self.draw_person(cr, person, math.pi/2, math.pi/2 + 2*math.pi,
                              0, NORMAL, parents, child,
                              userdata, is_central_person=True)
             #draw center disk to move chart
@@ -1266,15 +1266,13 @@ class FanChartWidget(FanChartBaseWidget):
         if self.background in [BACKGROUND_GRAD_AGE, BACKGROUND_GRAD_PERIOD]:
             self.draw_gradient_legend(cr, widget, halfdist)
 
-    def draw_person(self, cr, person, start, stop, generation, 
+    def draw_person(self, cr, person, start_rad, stop_rad, generation, 
                     state, parents, child, userdata, is_central_person=False):
         """
-        Display the piece of pie for a given person. start and stop
+        Display the piece of pie for a given person. start_rad and stop_rad
         are in degrees. 
         """
         cr.save()
-        start_rad = math.radians(start)
-        stop_rad = math.radians(stop)
         r, g, b, a = self.background_box(person, generation, userdata)
         radiusin,radiusout = self.get_radiusinout_for_generation(generation)
         # If max generation, and they have parents:
