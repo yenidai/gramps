@@ -781,50 +781,7 @@ class FanChartBaseWidget(Gtk.DrawingArea):
         generation = -1 on center black dot
         generation >= self.generations outside of diagram
         """
-        # compute angle, radius, find out who would be there (rotated)
-
-        # center coordinate
-        fanxy = curx - self.center_xy[0], cury - self.center_xy[1]
-        radius = math.sqrt((fanxy[0]) ** 2 + (fanxy[1]) ** 2)
-        if radius < TRANSLATE_PX:
-            generation = -1
-        elif (self.childring and self.angle[-2] and 
-                    radius < TRANSLATE_PX + CHILDRING_WIDTH):
-            generation = -2  # indication of one of the children
-        elif radius < self.CENTER:
-            generation = 0
-        else:
-            generation = self.generations
-            for gen in range(self.generations-1):
-                radiusin,radiusout = self.get_radiusinout_for_generation(gen)
-                if radiusin <= radius <= radiusout:
-                    generation = gen
-                    break
-        btype = self.boxtype(radius)
-
-        rads = math.atan2( fanxy[1], fanxy[0])
-        if rads < 0: # second half of unit circle
-            rads = math.pi + (math.pi + rads)
-        #angle before rotation:
-        pos = ((rads/(math.pi * 2) - self.rotate_value/360.) * 360.0) % 360
-        #children are in cairo angle (clockwise) from pi to 3 pi
-        #rads however is clock 0 to 2 pi
-        if rads < math.pi:
-            rads += 2 * math.pi
-        # if generation is in expand zone:
-        # FIXME: add a way of expanding 
-        # find what person is in this position:
-        selected = None
-        if (0 <= generation < self.generations):
-            selected = self.personpos_at_angle(generation, pos, btype)
-        elif generation == -2:
-            for p in range(len(self.angle[generation])):
-                start, stop, state = self.angle[generation][p]
-                if start <= rads <= stop:
-                    selected = p
-                    break
-            
-        return generation, selected, btype
+        raise NotImplementedError
 
     def boxtype(self, radius):
         """
@@ -1469,6 +1426,57 @@ class FanChartWidget(FanChartBaseWidget):
                                                       NORMAL]
                 self.show_parents(generation+1, selected-1, start, slice/2.0)
 
+    def person_under_cursor(self, curx, cury):
+        """
+        Determine the generation and the position in the generation at 
+        position x and y, as well as the type of box. 
+        generation = -1 on center black dot
+        generation >= self.generations outside of diagram
+        """
+        # compute angle, radius, find out who would be there (rotated)
+
+        # center coordinate
+        fanxy = curx - self.center_xy[0], cury - self.center_xy[1]
+        radius = math.sqrt((fanxy[0]) ** 2 + (fanxy[1]) ** 2)
+        if radius < TRANSLATE_PX:
+            generation = -1
+        elif (self.childring and self.angle[-2] and 
+                    radius < TRANSLATE_PX + CHILDRING_WIDTH):
+            generation = -2  # indication of one of the children
+        elif radius < self.CENTER:
+            generation = 0
+        else:
+            generation = self.generations
+            for gen in range(self.generations-1):
+                radiusin,radiusout = self.get_radiusinout_for_generation(gen)
+                if radiusin <= radius <= radiusout:
+                    generation = gen
+                    break
+        btype = self.boxtype(radius)
+
+        rads = math.atan2( fanxy[1], fanxy[0])
+        if rads < 0: # second half of unit circle
+            rads = math.pi + (math.pi + rads)
+        #angle before rotation:
+        pos = ((rads/(math.pi * 2) - self.rotate_value/360.) * 360.0) % 360
+        #children are in cairo angle (clockwise) from pi to 3 pi
+        #rads however is clock 0 to 2 pi
+        if rads < math.pi:
+            rads += 2 * math.pi
+        # if generation is in expand zone:
+        # FIXME: add a way of expanding 
+        # find what person is in this position:
+        selected = None
+        if (0 <= generation < self.generations):
+            selected = self.personpos_at_angle(generation, pos, btype)
+        elif generation == -2:
+            for p in range(len(self.angle[generation])):
+                start, stop, state = self.angle[generation][p]
+                if start <= rads <= stop:
+                    selected = p
+                    break
+            
+        return generation, selected, btype
     def personpos_at_angle(self, generation, angledeg, btype):
         """
         returns the person in generation generation at angle.
