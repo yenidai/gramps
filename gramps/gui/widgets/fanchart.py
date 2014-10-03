@@ -75,20 +75,6 @@ from gramps.gui.utilscairo import warpPath
 
 #-------------------------------------------------------------------------
 #
-# Functions
-#
-#-------------------------------------------------------------------------
-def gender_code(is_male):
-    """
-    Given boolean is_male (means position in FanChart) return code.
-    """
-    if is_male: 
-        return Person.MALE
-    else:
-        return Person.FEMALE
-
-#-------------------------------------------------------------------------
-#
 # Constants
 #
 #-------------------------------------------------------------------------
@@ -231,7 +217,7 @@ class FanChartBaseWidget(Gtk.DrawingArea):
         self._fill_data_structures()
     
         # prepare the colors for the boxes 
-        self.prepare_background_box()
+        self.prepare_background_box(self.generations)
 
     def _fill_data_structures(self):
         """
@@ -332,12 +318,11 @@ class FanChartBaseWidget(Gtk.DrawingArea):
                     )
         userdata.append((agecol[0]*255, agecol[1]*255, agecol[2]*255))
 
-    def prepare_background_box(self):
+    def prepare_background_box(self, maxgen):
         """
         Method that is called every reset of the chart, to precomputed values
         needed for the background of the boxes
         """
-        maxgen = self.generations
         cstart = hex_to_rgb(self.grad_start)
         cend = hex_to_rgb(self.grad_end)
         self.cstart_hsv = colorsys.rgb_to_hsv(cstart[0]/255, cstart[1]/255, 
