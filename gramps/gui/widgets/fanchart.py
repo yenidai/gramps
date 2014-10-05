@@ -1103,7 +1103,7 @@ class FanChartWidget(FanChartBaseWidget):
                 if not child:
                     continue
                 else:
-                    self.childrenroot.append((child_handle, child.get_gender(),
+                    self.childrenroot.append((name_displayer.display(child), child, True,
                                               self._have_children(child), []))
         for current in range(1, self.generations):
             parent = 0
@@ -1203,9 +1203,8 @@ class FanChartWidget(FanChartBaseWidget):
         a generator over all people inside of the core person
         """
         for childdata in self.childrenroot:
-            child_handle, child_gender, has_child, userdata = childdata
-            child = self.dbstate.db.get_person_from_handle(child_handle)
-            yield (child, userdata)
+            (text, person, parents, child, userdata) = childdata
+            yield (person, userdata)
 
     def on_draw(self, widget, cr, scale=1.):
         """
@@ -1319,9 +1318,8 @@ class FanChartWidget(FanChartBaseWidget):
         else:
             angleinc = 2 * math.pi / nrchild
         for childdata in self.childrenroot:
-            child_handle, child_gender, has_child, userdata = childdata
-            child = self.dbstate.db.get_person_from_handle(child_handle)
-            self.draw_innerring(cr, child, userdata, startangle, angleinc)
+            (text, person, parents, child, userdata) = childdata
+            self.draw_innerring(cr, person, userdata, startangle, angleinc)
             startangle += angleinc
 
     def expand_parents(self, generation, selected, current):
@@ -1498,8 +1496,7 @@ class FanChartWidget(FanChartBaseWidget):
         if pos is None:
             return None
         if generation == -2:
-            child_handle = self.childrenroot[pos][0]
-            person = self.dbstate.db.get_person_from_handle(child_handle)
+            person = self.childrenroot[pos][1]
         else:
             person = self.data[generation][pos][1]
         return person
