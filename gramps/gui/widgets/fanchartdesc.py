@@ -618,7 +618,7 @@ class FanChartDescWidget(FanChartBaseWidget):
         elif generation == -2:
             for p in range(len(self.angle[generation])):
                 start, stop, state = self.angle[generation][p]
-                if start <= raw_rads <= stop:
+                if self.radian_in_bounds(start, raw_rads, stop):
                     selected = p
                     break
         if (generation is None or selected is None):
@@ -661,7 +661,7 @@ class FanChartDescWidget(FanChartBaseWidget):
             # person, duplicate or not, start angle, slice size,
             #             text, parent pos in fam, nrfam, userdata, status
             start, stop = pdata[2], pdata[2] + pdata[3]
-            if start <= rads <= stop:
+            if self.radian_in_bounds(start, rads, stop):
                 selected = p
                 break
         return selected

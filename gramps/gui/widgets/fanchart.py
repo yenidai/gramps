@@ -794,6 +794,14 @@ class FanChartBaseWidget(Gtk.DrawingArea):
         else:
             return radius, rads
 
+    def radian_in_bounds(self, start_rad, rads, stop_rad):
+        assert(start_rad <= stop_rad)
+        # we compare (rads - start_rad) % (2.0 * math.pi) and (stop_rad - start_rad)
+        slice = stop_rad - start_rad
+        dist_rads_to_start_rads = (rads - start_rad) % (2.0 * math.pi)
+        #print start_rad, rads, stop_rad, ". (rads-start), slice :", dist_rads_to_start_rads, slice
+        return dist_rads_to_start_rads < slice
+
     def cell_address_under_cursor(self, curx, cury):
         """
         Determine the generation and the position in the generation at 
@@ -1457,14 +1465,14 @@ class FanChartWidget(FanChartBaseWidget):
         elif generation == -2:
             for p in range(len(self.angle[generation])):
                 start, stop, state = self.angle[generation][p]
-                if start <= raw_rads <= stop:
+                if self.radian_in_bounds(start, raw_rads, stop):
                     selected = p
                     break
         if (generation is None or selected is None):
             return None
         return generation, selected
 
-    def personpos_at_angle(self, generation, angledeg):
+    def personpos_at_angle(self, generation, rads):
         """
         returns the person in generation generation at angle.
         """
@@ -1475,7 +1483,7 @@ class FanChartWidget(FanChartBaseWidget):
             if self.data[generation][p][1]: # there is a person there
                 start, stop, state = self.angle[generation][p]
                 if state == COLLAPSED: continue
-                if start <= angledeg <= stop:
+                if self.radian_in_bounds(start, rads, stop):
                     selected = p
                     break
         return selected
