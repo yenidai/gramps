@@ -126,9 +126,6 @@ COLLAPSED = 0
 NORMAL = 1
 EXPANDED = 2
 
-TYPE_BOX_NORMAL = 0
-TYPE_BOX_FAMILY = 1
-
 #-------------------------------------------------------------------------
 #
 # FanChartBaseWidget
@@ -797,7 +794,7 @@ class FanChartBaseWidget(Gtk.DrawingArea):
         else:
             return radius, rads
 
-    def person_under_cursor(self, curx, cury):
+    def cell_address_under_cursor(self, curx, cury):
         """
         Determine the generation and the position in the generation at 
         position x and y, as well as the type of box. 
@@ -806,27 +803,15 @@ class FanChartBaseWidget(Gtk.DrawingArea):
         """
         raise NotImplementedError
 
-    def boxtype(self, radius):
+    def person_at(self, cell_address):
         """
-        default is only one type of box type
-        """
-        return TYPE_BOX_NORMAL
-
-    def personpos_at_angle(self, generation, angledeg, btype):
-        """
-        returns the person in generation generation at angle of type btype.
+        returns the person at cell_address
         """
         raise NotImplementedError
 
-    def person_at(self, generation, pos, btype):
+    def family_at(self, cell_address):
         """
-        returns the person at generation, pos, btype
-        """
-        raise NotImplementedError
-
-    def family_at(self, generation, pos, btype):
-        """
-        returns the family at generation, pos, btype
+        returns the family at cell_address
         """
         raise NotImplementedError
 
@@ -846,12 +831,10 @@ class FanChartBaseWidget(Gtk.DrawingArea):
         """grab key press
         """
         if self.mouse_x and self.mouse_y:
-            generation, selected, btype = self.person_under_cursor(self.mouse_x,
-                                                self.mouse_y)
-            if selected is None:
+            cell_address = self.cell_address_under_cursor(self.mouse_x, self.mouse_y)
+            if cell_address is None:
                 return False
-            person = self.person_at(generation, selected, btype)
-            family = self.family_at(generation, selected, btype)
+            person, family = self.person_at(cell_address), self.family_at(cell_address)
             if person and (Gdk.keyval_name(eventkey.keyval) == 'e'):
                 # we edit the person
                 self.edit_person_cb(None, person.handle)
@@ -865,7 +848,6 @@ class FanChartBaseWidget(Gtk.DrawingArea):
 
     def on_mouse_down(self, widget, event):
         self.translating = False # keep track of up/down/left/right movement
-        generation, selected, btype = self.person_under_cursor(event.x, event.y)
 
         if event.button == 1:
             #we grab the focus to enable to see key_press events
@@ -879,8 +861,9 @@ class FanChartBaseWidget(Gtk.DrawingArea):
                 self.last_x, self.last_y = event.x, event.y
                 return True
 
+        cell_address = self.cell_address_under_cursor(event.x, event.y)
         #click in open area, prepare for a rotate
-        if selected is None:
+        if cell_address is None:
             # save the mouse location for movements
             self.last_x, self.last_y = event.x, event.y
             return True
@@ -888,16 +871,13 @@ class FanChartBaseWidget(Gtk.DrawingArea):
         #left click on person, prepare for expand/collapse or drag
         if event.button == 1:
             self._mouse_click = True
-            self._mouse_click_gen = generation
-            self._mouse_click_sel = selected
-            self._mouse_click_btype = btype
+            self._mouse_click_cell_address = cell_address
             return False
     
         #right click on person, context menu
         # Do things based on state, event.get_state(), or button, event.button
         if is_right_click(event):
-            person = self.person_at(generation, selected, btype)
-            family = self.family_at(generation, selected, btype)
+            person, family = self.person_at(cell_address), self.family_at(cell_address)
             fhandle = None
             if family:
                 fhandle = family.handle
@@ -911,12 +891,11 @@ class FanChartBaseWidget(Gtk.DrawingArea):
         self._mouse_click = False
         if self.last_x is None or self.last_y is None:
             # while mouse is moving, we must update the tooltip based on person
-            generation, selected, btype = self.person_under_cursor(event.x, event.y)
-            self.mouse_x = event.x
-            self.mouse_y = event.y
+            cell_address =  self.cell_address_under_cursor(event.x, event.y)
+            self.mouse_x, self.mouse_y = event.x, event.y
             tooltip = ""
-            person = self.person_at(generation, selected, btype)
-            if person:
+            if cell_address:
+                person = self.person_at(cell_address)
                 tooltip = self.format_helper.format_person(person, 11)
             self.set_tooltip_text(tooltip)
             return False
@@ -984,8 +963,7 @@ class FanChartBaseWidget(Gtk.DrawingArea):
         Specified for 'person-link', for others return text info about person.
         """
         tgs = [x.name() for x in context.list_targets()]
-        person = self.person_at(self._mouse_click_gen, self._mouse_click_sel,
-                                self._mouse_click_btype)
+        person = self.person_at(self._mouse_click_cell_address)
         if info == DdTargets.PERSON_LINK.app_id:
             data = (DdTargets.PERSON_LINK.drag_type,
                     id(self), person.get_handle(), 0)
@@ -1404,7 +1382,8 @@ class FanChartWidget(FanChartBaseWidget):
                                                   state]
             self.shrink_parents(generation + 1, selected+1, current)
 
-    def change_slice(self, generation, selected):
+    def change_slice(self, cell_address):
+        generation, selected = cell_address
         if generation < 1:
             return
         gstart, gstop, gstate = self.angle[generation][selected]
@@ -1447,18 +1426,17 @@ class FanChartWidget(FanChartBaseWidget):
                                                       NORMAL]
                 self.show_parents(generation+1, selected-1, start, slice/2.0)
 
-    def person_under_cursor(self, curx, cury):
+    def cell_address_under_cursor(self, curx, cury):
         """
-        Determine the generation and the position in the generation at 
-        position x and y, as well as the type of box. 
-        generation = -1 on center black dot
-        generation >= self.generations outside of diagram
+        Determine the cell address in the fan under the cursor
+        position x and y. 
+        None if outside of diagram
         """
         radius, rads, raw_rads = self.cursor_to_polar(curx, cury, get_raw_rads=True)
 
         # find out the generation
         if radius < TRANSLATE_PX:
-            generation = -1
+            return None
         elif (self.childring and self.angle[-2] and 
                     radius < TRANSLATE_PX + CHILDRING_WIDTH):
             generation = -2  # indication of one of the children
@@ -1471,7 +1449,6 @@ class FanChartWidget(FanChartBaseWidget):
                 if radiusin <= radius <= radiusout:
                     generation = gen
                     break
-        btype = self.boxtype(radius)
 
         # find what person at this angle:
         selected = None
@@ -1483,9 +1460,11 @@ class FanChartWidget(FanChartBaseWidget):
                 if start <= raw_rads <= stop:
                     selected = p
                     break
-            
-        return generation, selected, btype
-    def personpos_at_angle(self, generation, angledeg, btype):
+        if (generation is None or selected is None):
+            return None
+        return generation, selected
+
+    def personpos_at_angle(self, generation, angledeg):
         """
         returns the person in generation generation at angle.
         """
@@ -1501,21 +1480,20 @@ class FanChartWidget(FanChartBaseWidget):
                     break
         return selected
 
-    def person_at(self, generation, pos, btype):
+    def person_at(self, cell_address):
         """
-        returns the person at generation, pos, btype
+        returns the person at cell_address
         """
-        if pos is None:
-            return None
+        generation, pos = cell_address
         if generation == -2:
             person = self.childrenroot[pos][1]
         else:
             person = self.data[generation][pos][1]
         return person
 
-    def family_at(self, generation, pos, btype):
+    def family_at(self, cell_address):
         """
-        returns the family at generation, pos, btype
+        returns the family at cell_address
         Difficult here, we would need to go to child, and then obtain the first
         parent family, as that is the family that is shown.
         """
@@ -1523,7 +1501,7 @@ class FanChartWidget(FanChartBaseWidget):
 
     def do_mouse_click(self):
         # no drag occured, expand or collapse the section
-        self.change_slice(self._mouse_click_gen, self._mouse_click_sel)
+        self.change_slice(self._mouse_click_cell_address)
         self._mouse_click = False
         self.queue_draw()
 

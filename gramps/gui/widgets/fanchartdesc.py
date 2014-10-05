@@ -88,6 +88,9 @@ ANGLE_CHEQUI = 0   #Algorithm with homogeneous children distribution
 ANGLE_WEIGHT = 1   #Algorithm for angle computation based on nr of descendants
 
 
+TYPE_BOX_NORMAL = 0
+TYPE_BOX_FAMILY = 1
+
 #-------------------------------------------------------------------------
 #
 # FanChartDescWidget
@@ -580,18 +583,17 @@ class FanChartDescWidget(FanChartBaseWidget):
         cr.restore()
 
 
-    def person_under_cursor(self, curx, cury):
+    def cell_address_under_cursor(self, curx, cury):
         """
-        Determine the generation and the position in the generation at 
-        position x and y, as well as the type of box. 
-        generation = -1 on center black dot
-        generation >= self.generations outside of diagram
+        Determine the cell address in the fan under the cursor
+        position x and y. 
+        None if outside of diagram
         """
         radius, rads, raw_rads = self.cursor_to_polar(curx, cury, get_raw_rads=True)
 
         btype = TYPE_BOX_NORMAL
         if radius < TRANSLATE_PX:
-            generation = -1
+            return None
         elif (self.parentsroot and self.angle[-2] and 
                     radius < self.CENTER-PIXELS_PER_GENFAMILY):
             generation = -2  # indication of one of the children
@@ -619,7 +621,8 @@ class FanChartDescWidget(FanChartBaseWidget):
                 if start <= raw_rads <= stop:
                     selected = p
                     break
-            
+        if (generation is None or selected is None):
+            return None
         return generation, selected, btype
 
 
@@ -652,6 +655,8 @@ class FanChartDescWidget(FanChartBaseWidget):
             datas = self.gen2people[generation]
         elif btype == TYPE_BOX_FAMILY and generation < self.generations -1:
             datas = self.gen2fam[generation]
+        else:
+            return None
         for p, pdata in enumerate(datas):
             # person, duplicate or not, start angle, slice size,
             #             text, parent pos in fam, nrfam, userdata, status
@@ -661,12 +666,11 @@ class FanChartDescWidget(FanChartBaseWidget):
                 break
         return selected
 
-    def person_at(self, generation, pos, btype):
+    def person_at(self, cell_address):
         """
         returns the person at generation, pos, btype
         """
-        if pos is None:
-            return None
+        generation, pos, btype = cell_address
         if generation == -2:
             person, userdata = self.parentsroot[pos]
         elif btype == TYPE_BOX_NORMAL:
@@ -679,22 +683,23 @@ class FanChartDescWidget(FanChartBaseWidget):
             person = self.gen2fam[generation][pos][8]
         return person
 
-    def family_at(self, generation, pos, btype):
+    def family_at(self, cell_address):
         """
         returns the family at generation, pos, btype
         """
+        generation, pos, btype = cell_address
         if pos is None or btype == TYPE_BOX_NORMAL or generation < 0:
             return None
         return self.gen2fam[generation][pos][0]
 
     def do_mouse_click(self):
         # no drag occured, expand or collapse the section
-        self.change_slice(self._mouse_click_gen, self._mouse_click_sel, 
-                          self._mouse_click_btype)
+        self.change_slice(self._mouse_click_cell_address)
         self._mouse_click = False
         self.queue_draw()
 
-    def change_slice(self, generation, selected, btype):
+    def change_slice(self, cell_address):
+        generation, selected, btype = cell_address
         if generation < 1:
             return
         if btype == TYPE_BOX_NORMAL:
