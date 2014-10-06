@@ -1452,7 +1452,7 @@ class FanChartWidget(FanChartBaseWidget):
             generation = 0
         else:
             generation = self.generations
-            for gen in range(self.generations-1):
+            for gen in range(self.generations):
                 radiusin,radiusout = self.get_radiusinout_for_generation(gen)
                 if radiusin <= radius <= radiusout:
                     generation = gen
