@@ -489,7 +489,7 @@ class FanChartBaseWidget(Gtk.DrawingArea):
     def draw_radbox(self, cr, radiusin, radiusout, start_rad, stop_rad, color,
                     thick=False):
         """
-        Procedure to draw a person in the outter ring position
+        Procedure to draw a person box in the outter ring position
         """
         cr.move_to(radiusout * math.cos(start_rad), radiusout * math.sin(start_rad))
         cr.arc(0, 0, radiusout, start_rad, stop_rad)
@@ -502,9 +502,13 @@ class FanChartBaseWidget(Gtk.DrawingArea):
         #and again for the border
         cr.move_to(radiusout * math.cos(start_rad), radiusout * math.sin(start_rad))
         cr.arc(0, 0, radiusout, start_rad, stop_rad)
-        cr.line_to(radiusin * math.cos(stop_rad), radiusin * math.sin(stop_rad))
+        if (start_rad - stop_rad) % (2 * math.pi) > 1e-5:
+            radial_motion_type = cr.line_to
+        else:
+            radial_motion_type = cr.move_to
+        radial_motion_type(radiusin * math.cos(stop_rad), radiusin * math.sin(stop_rad))
         cr.arc_negative(0, 0, radiusin, stop_rad, start_rad)
-        cr.close_path()
+        radial_motion_type(radiusout * math.cos(start_rad), radiusout * math.sin(start_rad))
         ##cr.append_path(path) # not working correct
         cr.set_source_rgb(0, 0, 0) # black
         if thick:
@@ -548,6 +552,54 @@ class FanChartBaseWidget(Gtk.DrawingArea):
         ##cr.append_path(path) # not working correct
         cr.set_source_rgba(r/255., g/255., b/255., a) 
         cr.fill()
+
+    def draw_person(self, cr, person, radiusin, radiusout, start_rad, stop_rad, 
+                    generation, dup, userdata, thick=False, has_moregen_indicator = False, 
+                    is_central_person=False):
+        """
+        Display the piece of pie for a given person. start_rad and stop_rad
+        are in radians. 
+        """
+        cr.save()
+        # If we need an indicator of more generations:
+        if has_moregen_indicator:
+            # draw an indicator
+            color=(1.0, 1.0, 1.0, 1.0) # white
+            self.draw_radbox(cr, radiusout, radiusout + BORDER_EDGE_WIDTH, start_rad, stop_rad, color, thick=False)
+
+        # get the color of the background
+        if not person:
+            # if called on None, let's make a transparent box
+            color = (1.0, 1.0, 1.0, 0)
+        elif dup:
+            r, g, b = self.dupcolor #duplicate color
+            color=(r/255., g/255., b/255., 1.0)
+        else:
+            r, g, b, a = self.background_box(person, generation, userdata)
+            color=(r/255., g/255., b/255., a)
+
+        # now draw the person
+        if not is_central_person:
+            self.draw_radbox(cr, radiusin, radiusout, start_rad, stop_rad, color, thick)
+        else:
+            #special box for centrer pers
+            cr.arc(0, 0, radiusout, 0, 2 * math.pi)
+            if self.childring and len(self.childrenroot)>0:
+                cr.arc_negative(0, 0, radiusin, 2 * math.pi, 0)
+                cr.close_path()
+            cr.set_source_rgba(*color)
+            cr.fill()
+
+        if self.last_x is None or self.last_y is None: 
+            #we are not in a move, so draw text
+            radial = False
+            if self.radialtext: ## and generation >= 6:
+                space_arc_text =  (radiusin+radiusout)/2 * (stop_rad-start_rad)
+                # is there more space to print it radial ?
+                radial= (space_arc_text < (radiusout-radiusin) * 1.1)
+            self.draw_person_text(cr, person, radiusin, radiusout, start_rad, stop_rad, 
+                           radial, self.fontcolor(r, g, b, a), self.fontbold(a))
+        cr.restore()
 
     def draw_person_text(self, cr, person, radiusin, radiusout, start, stop,
                   radial=False, fontcolor=(0, 0, 0), bold=False):
@@ -1245,9 +1297,11 @@ class FanChartWidget(FanChartBaseWidget):
                 if person:
                     start, stop, state = self.angle[generation][p]
                     if state in [NORMAL, EXPANDED]:
-                        self.draw_person(cr, person, start, stop, 
-                                         generation, state, parents, child,
-                                         userdata)
+                        radiusin,radiusout = self.get_radiusinout_for_generation(generation)
+                        dup = False
+                        self.draw_person(cr, person, radiusin, radiusout, start, stop,
+                                         generation, dup, userdata, thick=(state == EXPANDED),
+                                         has_moregen_indicator = (generation == self.generations - 1 and parents) )
         #draw center dot allowing translation
         cr.set_source_rgb(1, 1, 1) # white
         cr.move_to(0,0)
@@ -1260,9 +1314,10 @@ class FanChartWidget(FanChartBaseWidget):
         # Draw center person:
         (text, person, parents, child, userdata) = self.data[0][0]
         if person:
-            self.draw_person(cr, person, math.pi/2, math.pi/2 + 2*math.pi,
-                             0, NORMAL, parents, child,
-                             userdata, is_central_person=True)
+            radiusin, radiusout = self.get_radiusinout_for_generation(0)
+            if not child: radiusin = TRANSLATE_PX
+            self.draw_person(cr, person, radiusin, radiusout, math.pi/2, math.pi/2 + 2*math.pi,
+                             0, False, userdata, thick = False, has_moregen_indicator = False)
             #draw center disk to move chart
             cr.set_source_rgb(0, 0, 0) # black
             cr.move_to(TRANSLATE_PX, 0)
@@ -1275,45 +1330,6 @@ class FanChartWidget(FanChartBaseWidget):
                 self.draw_childring(cr)
         if self.background in [BACKGROUND_GRAD_AGE, BACKGROUND_GRAD_PERIOD]:
             self.draw_gradient_legend(cr, widget, halfdist)
-
-    def draw_person(self, cr, person, start_rad, stop_rad, generation, 
-                    state, parents, child, userdata, is_central_person=False):
-        """
-        Display the piece of pie for a given person. start_rad and stop_rad
-        are in radians. 
-        """
-        cr.save()
-        r, g, b, a = self.background_box(person, generation, userdata)
-        radiusin,radiusout = self.get_radiusinout_for_generation(generation)
-        # If max generation, and they have parents:
-        if generation == self.generations - 1 and parents:
-            # draw an indicator
-            color=(1.0, 1.0, 1.0, 1.0) # white
-            self.draw_radbox(cr, radiusout, radiusout + BORDER_EDGE_WIDTH, start_rad, stop_rad, color, thick=False)
-        # now draw the person
-        color=(r/255., g/255., b/255., a)
-        thick=(state == EXPANDED)
-        if not is_central_person:
-            self.draw_radbox(cr, radiusin, radiusout, start_rad, stop_rad, color, thick)
-        else:
-            #special box for centrer pers
-            cr.arc(0, 0, radiusout, 0, 2 * math.pi)
-            if self.childring and len(self.childrenroot)>0:
-                cr.arc_negative(0, 0, radiusin, 2 * math.pi, 0)
-                cr.close_path()
-            cr.set_source_rgba(*color)
-            cr.fill()
-
-        if self.last_x is None or self.last_y is None: 
-            #we are not in a move, so draw text
-            radial = False
-            if self.radialtext: ## and generation >= 6:
-                space_arc_text =  (radiusin+radiusout)/2 * (stop_rad-start_rad)
-                # is there more space to print it radial ?
-                radial= (space_arc_text < (radiusout-radiusin) * 1.1)
-            self.draw_person_text(cr, person, radiusin, radiusout, start_rad, stop_rad, 
-                           radial, self.fontcolor(r, g, b, a), self.fontbold(a))
-        cr.restore()
 
     def draw_childring(self, cr):
         cr.move_to(TRANSLATE_PX + CHILDRING_WIDTH, 0)

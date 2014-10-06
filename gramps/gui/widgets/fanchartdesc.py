@@ -494,7 +494,6 @@ class FanChartDescWidget(FanChartBaseWidget):
             cr.set_source_rgba(r/255, g/255, b/255, a)
             cr.fill()
             cr.save()
-            name = name_displayer.display(person)
             self.draw_person_text(cr, person, radiusin, radiusout,
                         math.radians(90), math.radians(90 + 360), False,
                         self.fontcolor(r, g, b, a), self.fontbold(a))
@@ -521,9 +520,11 @@ class FanChartDescWidget(FanChartBaseWidget):
                     pers, dup, start, slice, text, pospar, nrfam, userdata, status = \
                         pdata
                     if status != COLLAPSED:
-                        self.draw_person(cr, start, start + slice, radiusin_pers, 
-                                         radiusout_pers, gen, dup, 
-                                         pers, userdata, thick=status != NORMAL)
+                        more_pers_flag = (gen == self.generations - 1 
+                                        and self._have_children(pers))
+                        self.draw_person(cr, pers, radiusin_pers, radiusout_pers, 
+                                         start, start + slice, gen, dup, userdata, 
+                                         has_moregen_indicator = more_pers_flag, thick=status != NORMAL)
             if gen < self.generations-1:
                 for famdata in self.gen2fam[gen]:
                     # family, duplicate or not, start angle, slice size, 
@@ -531,53 +532,12 @@ class FanChartDescWidget(FanChartBaseWidget):
                     fam, dup, start, slice, text, posfam, nrchild, userdata,\
                         partner, status = famdata
                     if status != COLLAPSED:
-                        self.draw_person(cr, start, start + slice, radiusin_partner, 
-                                         radiusout_partner, gen, dup, 
-                                         partner, userdata, family=True, thick=status != NORMAL)
+                        self.draw_person(cr, partner, radiusin_partner, radiusout_partner, start, start + slice, 
+                                         gen, dup, userdata, thick = (status != NORMAL) )
         cr.restore()
         
         if self.background in [BACKGROUND_GRAD_AGE, BACKGROUND_GRAD_PERIOD]:
             self.draw_gradient_legend(cr, widget, halfdist)
-
-    def draw_person(self, cr, start_rad, stop_rad, radiusin, radiusout, 
-                generation, dup, person, userdata, family=False, thick=False):
-        """
-        Display the piece of pie for a given person. start_rad and slice
-        are in radial. 
-        """
-        if start_rad == stop_rad:
-            return
-        cr.save()
-        if not person:
-            #an family with partner not set. Don't have a color for this, 
-            # let's make it transparent
-            r, g, b, a = (255, 255, 255, 0)
-        elif not dup:
-            r, g, b, a = self.background_box(person, generation, userdata)
-        else:
-            #duplicate color
-            a = 1
-            r, g, b = self.dupcolor #(136, 138, 133)
-        # If max generation, and they have children:
-        if (not family and generation == self.generations - 1 
-                and self._have_children(person)):
-            # draw an indicator
-            color=(1.0, 1.0, 1.0, 1.0) # white
-            self.draw_radbox(cr, radiusout, radiusout + BORDER_EDGE_WIDTH, start_rad, stop_rad, color, thick=False)
-        # now draw the person
-        self.draw_radbox(cr, radiusin, radiusout, start_rad, stop_rad,
-                         (r/255, g/255, b/255, a), thick)
-        if self.last_x is None or self.last_y is None:
-            #we are not in a move, so draw text
-            radial = False
-            if self.radialtext: ## and generation >= 6:
-                space_arc_text =  (radiusin+radiusout)/2 * (stop_rad-start_rad)
-                # is there more space to print it radial ?
-                radial= (space_arc_text < (radiusout-radiusin) * 1.1)
-            self.draw_person_text(cr, person, radiusin, radiusout, start_rad, stop_rad, 
-                           radial, self.fontcolor(r, g, b, a), self.fontbold(a))
-        cr.restore()
-
 
     def cell_address_under_cursor(self, curx, cury):
         """
