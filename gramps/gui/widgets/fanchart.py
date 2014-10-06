@@ -1280,7 +1280,7 @@ class FanChartWidget(FanChartBaseWidget):
                     state, parents, child, userdata, is_central_person=False):
         """
         Display the piece of pie for a given person. start_rad and stop_rad
-        are in degrees. 
+        are in radians. 
         """
         cr.save()
         r, g, b, a = self.background_box(person, generation, userdata)

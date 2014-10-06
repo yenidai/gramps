@@ -521,7 +521,7 @@ class FanChartDescWidget(FanChartBaseWidget):
                     pers, dup, start, slice, text, pospar, nrfam, userdata, status = \
                         pdata
                     if status != COLLAPSED:
-                        self.draw_person(cr, start, slice, radiusin_pers, 
+                        self.draw_person(cr, start, start + slice, radiusin_pers, 
                                          radiusout_pers, gen, dup, 
                                          pers, userdata, thick=status != NORMAL)
             if gen < self.generations-1:
@@ -531,7 +531,7 @@ class FanChartDescWidget(FanChartBaseWidget):
                     fam, dup, start, slice, text, posfam, nrchild, userdata,\
                         partner, status = famdata
                     if status != COLLAPSED:
-                        self.draw_person(cr, start, slice, radiusin_partner, 
+                        self.draw_person(cr, start, start + slice, radiusin_partner, 
                                          radiusout_partner, gen, dup, 
                                          partner, userdata, family=True, thick=status != NORMAL)
         cr.restore()
@@ -539,19 +539,15 @@ class FanChartDescWidget(FanChartBaseWidget):
         if self.background in [BACKGROUND_GRAD_AGE, BACKGROUND_GRAD_PERIOD]:
             self.draw_gradient_legend(cr, widget, halfdist)
 
-    def draw_person(self, cr, start_rad, slice, radiusin, radiusout, 
+    def draw_person(self, cr, start_rad, stop_rad, radiusin, radiusout, 
                 generation, dup, person, userdata, family=False, thick=False):
         """
         Display the piece of pie for a given person. start_rad and slice
         are in radial. 
         """
-        if slice == 0:
+        if start_rad == stop_rad:
             return
         cr.save()
-        full = False
-        if abs(slice - 2*pi) < 1e-6:
-            full = True
-        stop_rad = start_rad + slice
         if not person:
             #an family with partner not set. Don't have a color for this, 
             # let's make it transparent
