@@ -101,7 +101,7 @@ class FanChartDescWidget(FanChartBaseWidget):
     """
     Interactive Fan Chart Widget. 
     """
-    CENTER = 40    # we require a larger center
+    CENTER = 50    # we require a larger center as CENTER includes the 1st partner
 
     def __init__(self, dbstate, uistate, callback_popup=None):
         """
