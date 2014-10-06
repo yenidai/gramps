@@ -595,7 +595,7 @@ class FanChartDescWidget(FanChartBaseWidget):
         if radius < TRANSLATE_PX:
             return None
         elif (self.parentsroot and self.angle[-2] and 
-                    radius < self.CENTER-PIXELS_PER_GENFAMILY):
+                    radius < CHILDRING_WIDTH + TRANSLATE_PX):
             generation = -2  # indication of one of the children
         elif radius < self.CENTER:
             generation = 0
