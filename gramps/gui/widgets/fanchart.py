@@ -1133,36 +1133,21 @@ class FanChartWidget(FanChartBaseWidget):
             parent = 0
             # name, person, parents, children
             for (n, p, q, c, d) in self.data[current - 1]:
-                # Get father's details:
-                person = self._get_parent(p, True)
-                if person:
-                    name = name_displayer.display(person)
-                else:
-                    name = None
-                if current == self.generations - 1:
-                    parents = self._have_parents(person)
-                else:
-                    parents = None
-                self.data[current][parent] = (name, person, parents, None, [])
-                if person is None:
-                    # start,stop,male/right,state
-                    self.angle[current][parent][2] = COLLAPSED
-                parent += 1
-                # Get mother's details:
-                person = self._get_parent(p, False)
-                if person:
-                    name = name_displayer.display(person)
-                else:
-                    name = None
-                if current == self.generations - 1:
-                    parents = self._have_parents(person)
-                else:
-                    parents = None
-                self.data[current][parent] = (name, person, parents, None, [])
-                if person is None:
-                    # start,stop,male/right,state
-                    self.angle[current][parent][2] = COLLAPSED
-                parent += 1
+                # Get father's and mother's details:
+                for person in [self._get_parent(p, True), self._get_parent(p, False)]:
+                    if person:
+                        name = name_displayer.display(person)
+                    else:
+                        name = None
+                    if current == self.generations - 1:
+                        parents = self._have_parents(person)
+                    else:
+                        parents = None
+                    self.data[current][parent] = (name, person, parents, None, [])
+                    if person is None:
+                        # start,stop,male/right,state
+                        self.angle[current][parent][2] = COLLAPSED
+                    parent += 1
 
     def _have_parents(self, person):
         """
