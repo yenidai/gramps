@@ -58,6 +58,8 @@ class FanChartDescView(fanchartdesc.FanChartDescGrampsGUI, NavigationView):
     CONFIGSETTINGS = (
         ('interface.fanview-maxgen', 9),
         ('interface.fanview-background', fanchart.BACKGROUND_GRAD_GEN),
+        ('interface.fanview-radialtext', True),
+        ('interface.fanview-flipupsidedownname', True),
         ('interface.fanview-font', 'Sans'),
         ('interface.fanview-form', fanchart.FORM_CIRCLE),
         ('interface.color-start-grad', '#ef2929'),
@@ -77,6 +79,8 @@ class FanChartDescView(fanchartdesc.FanChartDescGrampsGUI, NavigationView):
         #set needed values
         self.maxgen = self._config.get('interface.fanview-maxgen') 
         self.background = self._config.get('interface.fanview-background')
+        self.radialtext = self._config.get('interface.fanview-radialtext')
+        self.flipupsidedownname = self._config.get('interface.fanview-flipupsidedownname')
         self.fonttype = self._config.get('interface.fanview-font')
         
         self.grad_start =  self._config.get('interface.color-start-grad')
@@ -265,8 +269,8 @@ class FanChartDescView(fanchartdesc.FanChartDescGrampsGUI, NavigationView):
         """
         Function that builds the widget in the configuration dialog
         """
-        nrentry = 8
-        table = Gtk.Table(n_rows=6, n_columns=3)
+        nrentry = 9
+        table = Gtk.Table(n_rows=nrentry-2, n_columns=3)
         table.set_border_width(12)
         table.set_col_spacings(6)
         table.set_row_spacings(6)
@@ -326,6 +330,11 @@ class FanChartDescView(fanchartdesc.FanChartDescGrampsGUI, NavigationView):
                         ),
                         callback=self.cb_update_anglealgo)
 
+        # Flip names
+        configdialog.add_checkbox(table, 
+                _('Flip name on the left of the fan'), 
+                8, 'interface.fanview-flipupsidedownname')
+
         return _('Layout'), table
 
     def config_connect(self):
@@ -340,6 +349,8 @@ class FanChartDescView(fanchartdesc.FanChartDescGrampsGUI, NavigationView):
                           self.cb_update_color)
         self._config.connect('interface.duplicate-color',
                           self.cb_update_color)
+        self._config.connect('interface.fanview-flipupsidedownname',
+                          self.cb_update_flipupsidedownname)
 
     def cb_update_maxgen(self, spinbtn, constant):
         self.maxgen = spinbtn.get_value_as_int()
@@ -376,6 +387,13 @@ class FanChartDescView(fanchartdesc.FanChartDescGrampsGUI, NavigationView):
         self.dupcolor = self._config.get('interface.duplicate-color')
         self.update()
 
+    def cb_update_flipupsidedownname(self, client, cnxn_id, entry, data):
+        """
+        Called when the configuration menu changes the flipupsidedownname setting. 
+        """
+        self.flipupsidedownname = (entry == 'True')
+        self.update()
+        
     def cb_update_font(self, obj, constant):
         entry = obj.get_active()
         self._config.set(constant, self.allfonts[entry][1])

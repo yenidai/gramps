@@ -59,6 +59,7 @@ class FanChartView(fanchart.FanChartGrampsGUI, NavigationView):
         ('interface.fanview-background', fanchart.BACKGROUND_GRAD_GEN),
         ('interface.fanview-childrenring', True),
         ('interface.fanview-radialtext', True),
+        ('interface.fanview-flipupsidedownname', True),
         ('interface.fanview-font', 'Sans'),
         ('interface.fanview-form', fanchart.FORM_CIRCLE),
         ('interface.color-start-grad', '#ef2929'),
@@ -78,6 +79,7 @@ class FanChartView(fanchart.FanChartGrampsGUI, NavigationView):
         self.background = self._config.get('interface.fanview-background')
         self.childring =  self._config.get('interface.fanview-childrenring')
         self.radialtext = self._config.get('interface.fanview-radialtext')
+        self.flipupsidedownname = self._config.get('interface.fanview-flipupsidedownname')
         self.fonttype = self._config.get('interface.fanview-font')
         
         self.grad_start =  self._config.get('interface.color-start-grad')
@@ -263,8 +265,8 @@ class FanChartView(fanchart.FanChartGrampsGUI, NavigationView):
         """
         Function that builds the widget in the configuration dialog
         """
-        nrentry = 7
-        table = Gtk.Table(n_rows=6, n_columns=3)
+        nrentry = 8
+        table = Gtk.Table(n_rows=nrentry-1,  n_columns=3)
         table.set_border_width(12)
         table.set_col_spacings(6)
         table.set_row_spacings(6)
@@ -310,6 +312,10 @@ class FanChartView(fanchart.FanChartGrampsGUI, NavigationView):
                         ((0, _('Full Circle')), (1,_('Half Circle')), 
                          (2, _('Quadrant'))),
                         callback=self.cb_update_form)
+        # Flip names
+        configdialog.add_checkbox(table, 
+                _('Flip name on the left of the fan'), 
+                7, 'interface.fanview-flipupsidedownname')
 
         # options users should not change:
         configdialog.add_checkbox(table, 
@@ -330,6 +336,8 @@ class FanChartView(fanchart.FanChartGrampsGUI, NavigationView):
         """
         self._config.connect('interface.fanview-childrenring',
                           self.cb_update_childrenring)
+        self._config.connect('interface.fanview-flipupsidedownname',
+                          self.cb_update_flipupsidedownname)
         self._config.connect('interface.fanview-radialtext',
                           self.cb_update_radialtext)
         self._config.connect('interface.color-start-grad',
@@ -385,6 +393,13 @@ class FanChartView(fanchart.FanChartGrampsGUI, NavigationView):
         self.grad_end = self._config.get('interface.color-end-grad')
         self.update()
 
+
+    def cb_update_flipupsidedownname(self, client, cnxn_id, entry, data):
+        """
+        Called when the configuration menu changes the flipupsidedownname setting. 
+        """
+        self.flipupsidedownname = (entry == 'True')
+        self.update()
     def cb_update_font(self, obj, constant):
         entry = obj.get_active()
         self._config.set(constant, self.allfonts[entry][1])

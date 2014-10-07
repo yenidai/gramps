@@ -613,7 +613,7 @@ class FanChartBaseWidget(Gtk.DrawingArea):
                 text = ""
         #  2. now draw this text
         # offset for cairo-font system is 90
-        if (math.degrees(start_rad) + self.rotate_value - 90) % 360 < 179:
+        if (math.degrees(start_rad) + self.rotate_value - 90) % 360 < 179 and self.flipupsidedownname:
             angle = (start_rad + stop_rad)/2 + (h / radiusin / 2) + math.pi
             start_pos = -radiusout + PAD_TEXT
         else:
@@ -1029,12 +1029,12 @@ class FanChartWidget(FanChartBaseWidget):
         Fan Chart Widget. Handles visualization of data in self.data.
         See main() of FanChartGramplet for example of model format.
         """
-        self.set_values(None, 9, BACKGROUND_GRAD_GEN, True, True, 'Sans', '#0000FF',
+        self.set_values(None, 9, BACKGROUND_GRAD_GEN, True, True, True, 'Sans', '#0000FF',
                     '#FF0000', None, 0.5, FORM_CIRCLE)
         FanChartBaseWidget.__init__(self, dbstate, uistate, callback_popup)
 
     def set_values(self, root_person_handle, maxgen, background, childring,
-              radialtext, fontdescr, grad_start, grad_end,
+              flipupsidedownname, radialtext, fontdescr, grad_start, grad_end,
               filter, alpha_filter, form):
         """
         Reset the values to be used:
@@ -1044,6 +1044,7 @@ class FanChartWidget(FanChartBaseWidget):
         :param background: config setting of which background procedure to use
         :type background: int
         :param childring: to show the center ring with children or not
+        :param flipupsidedownname: flip name on the left of the fanchart for the display of person's name
         :param radialtext: try to use radial text or not
         :param fontdescr: string describing the font to use
         :param grad_start: colors to use for background procedure
@@ -1057,6 +1058,7 @@ class FanChartWidget(FanChartBaseWidget):
         self.generations = maxgen
         self.radialtext = radialtext
         self.childring = childring
+        self.flipupsidedownname = flipupsidedownname
         self.background = background
         self.fontdescr = fontdescr
         self.grad_start = grad_start
@@ -1515,7 +1517,7 @@ class FanChartGrampsGUI(object):
         """
         root_person_handle = self.get_active('Person')
         self.fan.set_values(root_person_handle, self.maxgen, self.background,
-                        self.childring, self.radialtext, self.fonttype,
+                        self.childring, self.flipupsidedownname, self.radialtext, self.fonttype,
                         self.grad_start, self.grad_end,
                         self.generic_filter, self.alpha_filter, self.form)
         self.fan.reset()
