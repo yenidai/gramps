@@ -468,15 +468,6 @@ class FanChartDescWidget(FanChartBaseWidget):
         cr.translate(*self.center_xy)
 
         cr.save()
-        #draw center person box
-        cr.set_source_rgb(1, 1, 1) # white
-        cr.move_to(0,0)
-        cr.arc(0, 0, self.CENTER-PIXELS_PER_GENFAMILY, 0, 2 * math.pi)
-        cr.fill()
-        cr.set_source_rgb(0, 0, 0) # black
-        cr.arc(0, 0, self.CENTER-PIXELS_PER_GENFAMILY, 0, 2 * math.pi)
-        cr.stroke()
-        cr.restore()
         # Draw center person:
         (person, dup, start, slice, text, parentfampos, nrfam, userdata, status) \
                 = self.gen2people[0][0]
@@ -484,20 +475,9 @@ class FanChartDescWidget(FanChartBaseWidget):
             r, g, b, a = self.background_box(person, 0, userdata)
             radiusin_pers,radiusout_pers,radiusin_partner,radiusout_partner = \
                 self.get_radiusinout_for_generation_pair(0)
-            radiusin = CHILDRING_WIDTH + TRANSLATE_PX
-            radiusout = radiusout_pers
-            cr.arc(0, 0, radiusout, 0, 2 * math.pi)
-            if self.parentsroot:
-                cr.arc_negative(0, 0, radiusin,
-                                2 * math.pi, 0)
-                cr.close_path()
-            cr.set_source_rgba(r/255, g/255, b/255, a)
-            cr.fill()
-            cr.save()
-            self.draw_person_text(cr, person, radiusin, radiusout,
-                        math.radians(90), math.radians(90 + 360), False,
-                        self.fontcolor(r, g, b, a), self.fontbold(a))
-            cr.restore()
+            if not self.parentsroot: radiusin_pers = TRANSLATE_PX
+            self.draw_person(cr, person, radiusin_pers, radiusout_pers, math.pi/2, math.pi/2 + 2*math.pi,
+                             0, False, userdata)
             #draw center to move chart
             cr.set_source_rgb(0, 0, 0) # black
             cr.move_to(TRANSLATE_PX, 0)
@@ -508,7 +488,6 @@ class FanChartDescWidget(FanChartBaseWidget):
             else:
                 cr.stroke()
         #now write all the families and children
-        cr.save()
         cr.rotate(self.rotate_value * math.pi/180)
         for gen in range(self.generations):
             radiusin_pers,radiusout_pers,radiusin_partner,radiusout_partner = \
