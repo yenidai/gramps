@@ -1302,14 +1302,6 @@ class FanChartWidget(FanChartBaseWidget):
                         self.draw_person(cr, person, radiusin, radiusout, start, stop,
                                          generation, dup, userdata, thick=(state == EXPANDED),
                                          has_moregen_indicator = (generation == self.generations - 1 and parents) )
-        #draw center person box
-        cr.set_source_rgb(1, 1, 1) # white
-        cr.move_to(0,0)
-        cr.arc(0, 0, self.CENTER, 0, 2 * math.pi)
-        cr.fill()
-        cr.set_source_rgb(0, 0, 0) # black
-        cr.arc(0, 0, self.CENTER, 0, 2 * math.pi)
-        cr.stroke()
         cr.restore()
         # Draw center person:
         (text, person, parents, child, userdata) = self.data[0][0]
