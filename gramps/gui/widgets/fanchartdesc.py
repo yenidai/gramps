@@ -556,20 +556,20 @@ class FanChartDescWidget(FanChartBaseWidget):
         elif radius < self.CENTER:
             generation = 0
         else:
-            generation = self.generations
+            generation = None
             for gen in range(self.generations):
                 radiusin_pers,radiusout_pers,radiusin_partner,radiusout_partner \
                     = self.get_radiusinout_for_generation_pair(gen)
                 if radiusin_pers <= radius <= radiusout_pers:
                     generation, btype = gen, TYPE_BOX_NORMAL
                     break
-                if radiusin_partner <= radius <= radiusout_partner:
+                if radiusin_partner <= radius <= radiusout_partner and gen < self.generations -1:
                     generation, btype = gen, TYPE_BOX_FAMILY
                     break
 
         # find what person is in this position:
         selected = None
-        if (0 <= generation < self.generations):
+        if not (generation is None) and 0 <= generation:
             selected = self.personpos_at_angle(generation, rads, btype)
         elif generation == -2:
             for p in range(len(self.angle[generation])):
@@ -609,7 +609,7 @@ class FanChartDescWidget(FanChartBaseWidget):
         datas = None
         if btype == TYPE_BOX_NORMAL:
             datas = self.gen2people[generation]
-        elif btype == TYPE_BOX_FAMILY and generation < self.generations -1:
+        elif btype == TYPE_BOX_FAMILY:
             datas = self.gen2fam[generation]
         else:
             return None

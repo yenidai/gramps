@@ -1467,7 +1467,7 @@ class FanChartWidget(FanChartBaseWidget):
         elif radius < self.CENTER:
             generation = 0
         else:
-            generation = self.generations
+            generation = None
             for gen in range(self.generations):
                 radiusin,radiusout = self.get_radiusinout_for_generation(gen)
                 if radiusin <= radius <= radiusout:
@@ -1476,7 +1476,7 @@ class FanChartWidget(FanChartBaseWidget):
 
         # find what person at this angle:
         selected = None
-        if (0 <= generation < self.generations):
+        if not (generation is None) and 0 <= generation:
             selected = self.personpos_at_angle(generation, rads)
         elif generation == -2:
             for p in range(len(self.angle[generation])):
