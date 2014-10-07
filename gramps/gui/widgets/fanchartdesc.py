@@ -212,11 +212,11 @@ class FanChartDescWidget(FanChartBaseWidget):
                         handleparents.append(hmother)
 
         #recursively fill in the datastructures:
-        nrdesc = self.__rec_fill_data(0, person, 0)
+        nrdesc = self._rec_fill_data(0, person, 0, self.generations)
         self.handle2desc[person.handle] += nrdesc
-        self.__compute_angles()
+        self._compute_angles()
 
-    def __rec_fill_data(self, gen, person, pos):
+    def _rec_fill_data(self, gen, person, pos, maxgen):
         """
         Recursively fill in the data
         """
@@ -263,15 +263,15 @@ class FanChartDescWidget(FanChartBaseWidget):
                             posfam, 0, [], NORMAL])
                     totdescfam += 1 #add this person as descendant
                     pospers = len(self.gen2people[gen+1]) - 1
-                    if not dup and not(self.generations == gen+2):
-                        nrdesc = self.__rec_fill_data(gen+1, child, pospers)
+                    if not dup and gen+2 < maxgen:
+                        nrdesc = self._rec_fill_data(gen+1, child, pospers, maxgen)
                         self.handle2desc[child_ref.ref] += nrdesc
                         totdescfam += nrdesc # add children of him as descendants
                 self.famhandle2desc[family_handle] = totdescfam
             totdesc += totdescfam
         return totdesc
 
-    def __compute_angles(self):
+    def _compute_angles(self):
         """
         Compute the angles of the boxes
         """
@@ -668,7 +668,7 @@ class FanChartDescWidget(FanChartBaseWidget):
                     if entry[5] == parpos:
                         entry[9] = NORMAL
                     
-        self.__compute_angles()
+        self._compute_angles()
 
 class FanChartDescGrampsGUI(FanChartGrampsGUI):
     """ class for functions fanchart GUI elements will need in Gramps
