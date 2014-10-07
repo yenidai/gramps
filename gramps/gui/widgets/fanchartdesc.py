@@ -521,7 +521,7 @@ class FanChartDescWidget(FanChartBaseWidget):
         cr.restore()
         
         if self.background in [BACKGROUND_GRAD_AGE, BACKGROUND_GRAD_PERIOD]:
-            self.draw_gradient(cr, widget, halfdist)
+            self.draw_gradient_legend(cr, widget, halfdist)
 
     def draw_person(self, cr, start_rad, slice, radiusin, radiusout, 
                 generation, dup, person, userdata, family=False, thick=False):

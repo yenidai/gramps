@@ -726,7 +726,7 @@ class FanChartBaseWidget(Gtk.DrawingArea):
         return lambda x, y: \
             (rho(y) * math.cos(phi(x)), rho(y) * math.sin(phi(x)))
 
-    def draw_gradient(self, cr, widget, halfdist):
+    def draw_gradient_legend(self, cr, widget, halfdist):
         gradwidth = 10
         gradheight = 10
         starth = 15
@@ -1294,7 +1294,7 @@ class FanChartWidget(FanChartBaseWidget):
             if child and self.childring:
                 self.draw_childring(cr)
         if self.background in [BACKGROUND_GRAD_AGE, BACKGROUND_GRAD_PERIOD]:
-            self.draw_gradient(cr, widget, halfdist)
+            self.draw_gradient_legend(cr, widget, halfdist)
 
     def draw_person(self, cr, person, start, stop, generation, 
                     state, parents, child, userdata, is_central_person=False):
