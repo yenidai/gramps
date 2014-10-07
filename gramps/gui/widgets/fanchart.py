@@ -570,13 +570,13 @@ class FanChartBaseWidget(Gtk.DrawingArea):
         # get the color of the background
         if not person:
             # if called on None, let's make a transparent box
-            color = (1.0, 1.0, 1.0, 0)
+            r, g, b, a = (255, 255, 255, 0)
         elif dup:
             r, g, b = self.dupcolor #duplicate color
-            color=(r/255., g/255., b/255., 1.0)
+            a = 1.0
         else:
             r, g, b, a = self.background_box(person, generation, userdata)
-            color=(r/255., g/255., b/255., a)
+        color=(r/255., g/255., b/255., a)
 
         # now draw the person
         if not is_central_person:
