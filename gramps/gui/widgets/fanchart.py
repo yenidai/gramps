@@ -774,6 +774,29 @@ class FanChartBaseWidget(Gtk.DrawingArea):
             starth = starth+gradheight
         cr.restore()
 
+    def cursor_on_tranlation_dot(self, curx, cury):
+        """
+        Determine if the cursor at position x and y is 
+        on the translation dot
+        """
+        fanxy = curx - self.center_xy[0], cury - self.center_xy[1]
+        radius = math.sqrt((fanxy[0]) ** 2 + (fanxy[1]) ** 2)
+        return radius < TRANSLATE_PX
+
+    def cursor_to_polar(self, curx, cury, get_raw_rads = False):
+        # compute angle, radius in unrotated fan
+        fanxy = curx - self.center_xy[0], cury - self.center_xy[1]
+        radius = math.sqrt((fanxy[0]) ** 2 + (fanxy[1]) ** 2)
+        #angle before rotation:
+        #children are in cairo angle (clockwise) from pi to 3 pi
+        #rads however is clock 0 to 2 pi
+        raw_rads = math.atan2( fanxy[1], fanxy[0]) % (2 * math.pi)
+        rads = (raw_rads - math.radians(self.rotate_value) ) % (2 * math.pi)
+        if get_raw_rads:
+            return radius, rads, raw_rads
+        else:
+            return radius, rads
+
     def person_under_cursor(self, curx, cury):
         """
         Determine the generation and the position in the generation at 
@@ -849,7 +872,7 @@ class FanChartBaseWidget(Gtk.DrawingArea):
             self.grab_focus()
 
         # left mouse on center dot, we translate on left click
-        if generation == -1: 
+        if self.cursor_on_tranlation_dot(event.x, event.y):
             if event.button == 1: # left mouse
                 # save the mouse location for movements
                 self.translating = True
@@ -976,8 +999,9 @@ class FanChartBaseWidget(Gtk.DrawingArea):
 
         If the selection data is defined, extract the value from sel_data.data
         """
-        gen, persatcurs, btype = self.person_under_cursor(x, y)
-        if gen == -1 or gen == 0:
+        radius, rads = self.cursor_to_polar(x, y)
+
+        if radius < self.CENTER:
             if sel_data and sel_data.get_data():
                 (drag_type, idval, handle, val) = pickle.loads(sel_data.get_data())
                 self.goto(self, handle)
@@ -1238,6 +1262,7 @@ class FanChartWidget(FanChartBaseWidget):
                         self.draw_person(cr, person, start, stop, 
                                          generation, state, parents, child,
                                          userdata)
+        #draw center dot allowing translation
         cr.set_source_rgb(1, 1, 1) # white
         cr.move_to(0,0)
         cr.arc(0, 0, self.CENTER, 0, 2 * math.pi)
@@ -1429,11 +1454,9 @@ class FanChartWidget(FanChartBaseWidget):
         generation = -1 on center black dot
         generation >= self.generations outside of diagram
         """
-        # compute angle, radius, find out who would be there (rotated)
+        radius, rads, raw_rads = self.cursor_to_polar(curx, cury, get_raw_rads=True)
 
-        # center coordinate
-        fanxy = curx - self.center_xy[0], cury - self.center_xy[1]
-        radius = math.sqrt((fanxy[0]) ** 2 + (fanxy[1]) ** 2)
+        # find out the generation
         if radius < TRANSLATE_PX:
             generation = -1
         elif (self.childring and self.angle[-2] and 
@@ -1450,25 +1473,14 @@ class FanChartWidget(FanChartBaseWidget):
                     break
         btype = self.boxtype(radius)
 
-        rads = math.atan2( fanxy[1], fanxy[0])
-        if rads < 0: # second half of unit circle
-            rads = math.pi + (math.pi + rads)
-        #angle before rotation:
-        pos = ((rads/(math.pi * 2) - self.rotate_value/360.) * 360.0) % 360
-        #children are in cairo angle (clockwise) from pi to 3 pi
-        #rads however is clock 0 to 2 pi
-        if rads < math.pi:
-            rads += 2 * math.pi
-        # if generation is in expand zone:
-        # FIXME: add a way of expanding 
-        # find what person is in this position:
+        # find what person at this angle:
         selected = None
         if (0 <= generation < self.generations):
-            selected = self.personpos_at_angle(generation, pos, btype)
+            selected = self.personpos_at_angle(generation, rads)
         elif generation == -2:
             for p in range(len(self.angle[generation])):
                 start, stop, state = self.angle[generation][p]
-                if start <= rads <= stop:
+                if start <= raw_rads <= stop:
                     selected = p
                     break
             
