@@ -468,7 +468,7 @@ class FanChartDescWidget(FanChartBaseWidget):
         cr.translate(*self.center_xy)
 
         cr.save()
-        #draw center
+        #draw center person box
         cr.set_source_rgb(1, 1, 1) # white
         cr.move_to(0,0)
         cr.arc(0, 0, self.CENTER-PIXELS_PER_GENFAMILY, 0, 2 * math.pi)
