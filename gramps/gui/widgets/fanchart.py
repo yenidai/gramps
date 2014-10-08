@@ -724,7 +724,7 @@ class FanChartBaseWidget(Gtk.DrawingArea):
 
         # get height of text:
         textheight=layout.get_size()[1]/Pango.SCALE
-        radius_text=(radiusin+radiusout)/2.0 #+ textheight/2.0
+        radius_text=(radiusin+radiusout)/2.0
 
         # 1. compute available text space
         avail_height = radiusout - radiusin - 2.0 * PAD_TEXT
@@ -732,69 +732,41 @@ class FanChartBaseWidget(Gtk.DrawingArea):
 
         w, h = self.wrap_truncate_layout(layout, font, avail_width, avail_height, tryrescale=True)
 
-        rad_padding = PAD_TEXT / radius_text
         # 2. Compute text position start angle
-        pos_rad = start_rad + math.pi/2 + rad_padding # offset for cairo-font system is 90:
-        cr.rotate(pos_rad)
-        cr.new_path()
-        cr.move_to(0, -radiusin)
-        rad_spread = avail_width / radius_text
+        pos_rad = (stop_rad + start_rad)/2 - (w/2/radius_text) 
+        end_rad = pos_rad + (w/radius_text)
 
         # 3. Use the layout to provide us the metrics of the text box
+        cr.new_path()
         PangoCairo.layout_path(cr, layout)
-        #le = layout.get_line(0).get_pixel_extents()[0]
-        pe = cr.path_extents()
-        if pe == (0.0, 0.0, 0.0, 0.0):
-            # 7710: When scrolling the path extents are zero on Ubuntu 14.04
-            return
-        arc_used_ratio = w / (radius_text * rad_spread)
-        rad_mid = pos_rad + rad_spread/2
 
         # 4. The moment of truth: map the text box onto the sector, and render!
         warpPath(cr, \
-            self.create_map_rect_to_sector(radius_text, pe, \
-                arc_used_ratio, rad_mid - rad_spread/2, rad_mid + rad_spread/2))
+            self.create_map_rect_to_sector(radius_text, pos_rad, end_rad, textheight))
         cr.fill()
 
     @staticmethod
-    def create_map_rect_to_sector(radius, rect, arc_used_ratio, start_rad, stop_rad):
+    def create_map_rect_to_sector(radius, start_rad, stop_rad, textheight, bottom_is_outside = False):
         """
         Create a 2D-transform, mapping a rectangle onto a circle sector.
 
         :param radius: average radius of the target sector
-        :param rect: (x1, y1, x2, y2)
-        :param arc_used_ratio: From 0.0 to 1.0. Rather than stretching onto the
-                               whole sector, only the middle arc_used_ratio part
-                               will be mapped onto.
         :param start_rad: start radial angle of the sector, in radians
         :param stop_rad: stop radial angle of the sector, in radians
+        :param textheight height of the text
+        :param bottom_is_outside flag defining if we write with the bottom toward outside
         :returns: a lambda (x,y)|->(xNew,yNew) to feed to warpPath.
         """
-
-        x0, y0, w, h = rect[0], rect[1], rect[2]-rect[0], rect[3]-rect[1]
-
-        radiusin = radius - h/2
-        radiusout = radius + h/2
-        drho = h
-        dphi = (stop_rad - start_rad)
-
-        # There has to be a clearer way to express this transform,
-        # by stacking a set of transforms on cr around using this function
-        # and doing a mapping between unit squares of rectangular and polar
-        # coordinates.
-
-        def phi(x):
-            return (x - x0) * dphi * arc_used_ratio / w \
-                   + (1 - arc_used_ratio) * dphi / 2 \
-                   - math.pi/2 
-        def rho(y):
-            return (y - y0) * (radiusin - radiusout)/h + radiusout
-
-        # In (user coordinates units - pixels):
-        # x from x0 to x0 + w
-        # y from y0 to y0 + h
-        # Out:
-        # (x, y) within the arc_used_ratio of a box like drawn by draw_radbox
+        if bottom_is_outside:
+            def phi(x):
+                return -x/radius + stop_rad
+            def rho(y):
+                return radius + (y - textheight/2.0)
+        else:
+            def phi(x):
+                return x/radius + start_rad
+            def rho(y):
+                return radius - ( y - textheight/2.0)
         return lambda x, y: \
             (rho(y) * math.cos(phi(x)), rho(y) * math.sin(phi(x)))
 
