@@ -477,7 +477,7 @@ class FanChartDescWidget(FanChartBaseWidget):
                 self.get_radiusinout_for_generation_pair(0)
             if not self.parentsroot: radiusin_pers = TRANSLATE_PX
             self.draw_person(cr, person, radiusin_pers, radiusout_pers, math.pi/2, math.pi/2 + 2*math.pi,
-                             0, False, userdata)
+                             0, False, userdata, is_central_person =True)
             #draw center to move chart
             cr.set_source_rgb(0, 0, 0) # black
             cr.move_to(TRANSLATE_PX, 0)

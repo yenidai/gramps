@@ -436,7 +436,7 @@ class FanChart2WayWidget(FanChartWidget, FanChartDescWidget):
             radiusin = TRANSLATE_PX
             radiusout = radiusout_pers
             self.draw_person(cr, person, radiusin, radiusout, math.pi/2, math.pi/2 + 2*math.pi,
-                             gen_remapped, False, userdata)
+                             gen_remapped, False, userdata, is_central_person = True)
             #draw center to move chart
             cr.set_source_rgb(0, 0, 0) # black
             cr.move_to(TRANSLATE_PX, 0)

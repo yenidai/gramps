@@ -598,11 +598,11 @@ class FanChartBaseWidget(Gtk.DrawingArea):
                 # is there more space to print it radial ?
                 radial= (space_arc_text < (radiusout-radiusin) * 1.1)
             self.draw_person_text(cr, person, radiusin, radiusout, start_rad, stop_rad, 
-                           radial, self.fontcolor(r, g, b, a), self.fontbold(a))
+                           radial, self.fontcolor(r, g, b, a), self.fontbold(a), can_flip=not is_central_person)
         cr.restore()
 
     def draw_person_text(self, cr, person, radiusin, radiusout, start, stop,
-                  radial=False, fontcolor=(0, 0, 0), bold=False):
+                  radial=False, fontcolor=(0, 0, 0), bold=False, can_flip = True):
         if not person: return
         draw_radial = radial and self.radialtext
         if not self.twolinename:
@@ -615,23 +615,29 @@ class FanChartBaseWidget(Gtk.DrawingArea):
             text_line2=name_displayer.display_format(person,self.twolineformat_nums[1])
             if draw_radial:
                 split_frac_line1=0.5
-                if (math.degrees(start) + self.rotate_value - 90) % 360 < 179 and self.flipupsidedownname:
+                flipped = can_flip and ((math.degrees((start+stop)/2.0) + self.rotate_value - 90) % 360 < 179 and self.flipupsidedownname)
+                if flipped:
                     middle=(start*split_frac_line1+stop*(1.0-split_frac_line1))
                     (a11,a12,a21,a22)=(middle,stop,start,middle)
                 else:
                     middle=(start*(1.0-split_frac_line1)+stop*split_frac_line1)
                     (a11,a12,a21,a22)=(start,middle,middle,stop)
-                written_textwidth=self.draw_text(cr, text_line1, radiusin, radiusout, a11, a12, draw_radial, fontcolor, bold=1)
+                written_textwidth=self.draw_text(cr, text_line1, radiusin, radiusout, a11, a12, draw_radial, fontcolor, bold=1, flipped=flipped)
                 if written_textwidth == 0 and text_line1 != "":
                     #Not enought space for 2 line, fallback to 1 line
-                    written_textwidth=self.draw_text(cr, text_line1, radiusin, radiusout, start, stop, draw_radial, fontcolor, bold=1)
-                    self.draw_text(cr, text_line2, radiusin+written_textwidth+PAD_TEXT, radiusout, start, stop, draw_radial, fontcolor, bold)
+                    written_textwidth=self.draw_text(cr, text_line1, radiusin, radiusout, start, stop, draw_radial, fontcolor, bold=1, flipped=flipped)
+                    self.draw_text(cr, text_line2, radiusin+written_textwidth+PAD_TEXT, radiusout, start, stop, draw_radial, fontcolor, bold, flipped)
                 else:
-                    self.draw_text(cr, text_line2, radiusin, radiusout, a21, a22, draw_radial, fontcolor, bold)
+                    self.draw_text(cr, text_line2, radiusin, radiusout, a21, a22, draw_radial, fontcolor, bold, flipped)
             else:
                 middle=(radiusin*.5+radiusout*.5)
-                self.draw_text(cr, text_line1, middle, radiusout, start, stop, draw_radial, fontcolor, bold=1)
-                self.draw_text(cr, text_line2, radiusin, middle, start, stop, draw_radial, fontcolor, bold=0)
+                flipped = can_flip and ((math.degrees((start+stop)/2.0) + self.rotate_value) % 360 < 179 and self.flipupsidedownname)
+                if flipped:
+                    self.draw_text(cr, text_line2, middle, radiusout, start, stop, draw_radial, fontcolor, bold=0, flipped=flipped)
+                    self.draw_text(cr, text_line1, radiusin, middle, start, stop, draw_radial, fontcolor, bold=1, flipped=flipped)
+                else:
+                    self.draw_text(cr, text_line1, middle, radiusout, start, stop, draw_radial, fontcolor, bold=1, flipped=flipped)
+                    self.draw_text(cr, text_line2, radiusin, middle, start, stop, draw_radial, fontcolor, bold=0, flipped=flipped)
 
     def wrap_truncate_layout(self, layout, font, width_pixels, height_pixels, tryrescale=True):
         """
@@ -668,7 +674,7 @@ class FanChartBaseWidget(Gtk.DrawingArea):
 
     def draw_text(self, cr, text, radiusin, radiusout, start_rad, stop_rad,
                   radial=False,
-                  fontcolor=(0, 0, 0), bold=False):
+                  fontcolor=(0, 0, 0), bold=False, flipped = False):
         """
         Display text at a particular radius, between start_rad and stop_rad
         radians.
@@ -681,12 +687,12 @@ class FanChartBaseWidget(Gtk.DrawingArea):
         cr.save()
         cr.set_source_rgb(*fontcolor)
         if radial and self.radialtext:
-            self.draw_radial_text(cr, text, radiusin, radiusout, start_rad, stop_rad, font)
+            self.draw_radial_text(cr, text, radiusin, radiusout, start_rad, stop_rad, font, flipped)
         else:
-            self.draw_arc_text(cr, text, radiusin, radiusout, start_rad, stop_rad, font)
+            self.draw_arc_text(cr, text, radiusin, radiusout, start_rad, stop_rad, font, flipped)
         cr.restore()
 
-    def draw_radial_text(self, cr, text, radiusin, radiusout, start_rad, stop_rad, font):
+    def draw_radial_text(self, cr, text, radiusin, radiusout, start_rad, stop_rad, font, flipped):
         layout = self.create_pango_layout(text)
         layout.set_font_description(font)
         layout.set_wrap(Pango.WrapMode.WORD_CHAR)
@@ -700,7 +706,7 @@ class FanChartBaseWidget(Gtk.DrawingArea):
 
         #  2. now draw this text
         # offset for cairo-font system is 90
-        if (math.degrees(start_rad) + self.rotate_value - 90) % 360 < 179 and self.flipupsidedownname:
+        if flipped:
             angle = (start_rad + stop_rad)/2 + (h / radiusin / 2) + math.pi
             start_pos = -radiusout + PAD_TEXT
         else:
@@ -711,7 +717,7 @@ class FanChartBaseWidget(Gtk.DrawingArea):
         cr.move_to(start_pos, 0)
         PangoCairo.show_layout(cr, layout)
 
-    def draw_arc_text(self, cr, text, radiusin, radiusout, start_rad, stop_rad, font):
+    def draw_arc_text(self, cr, text, radiusin, radiusout, start_rad, stop_rad, font, bottom_is_outside):
         """
         Display text at a particular radius, between start and stop
         degrees, setting it up along the arc, center-justified.
@@ -733,16 +739,16 @@ class FanChartBaseWidget(Gtk.DrawingArea):
         w, h = self.wrap_truncate_layout(layout, font, avail_width, avail_height, tryrescale=True)
 
         # 2. Compute text position start angle
-        pos_rad = (stop_rad + start_rad)/2 - (w/2/radius_text) 
+        mid_rad = (stop_rad + start_rad)/2
+        pos_rad = mid_rad - (w/2/radius_text) 
         end_rad = pos_rad + (w/radius_text)
-
         # 3. Use the layout to provide us the metrics of the text box
         cr.new_path()
         PangoCairo.layout_path(cr, layout)
 
         # 4. The moment of truth: map the text box onto the sector, and render!
         warpPath(cr, \
-            self.create_map_rect_to_sector(radius_text, pos_rad, end_rad, textheight))
+            self.create_map_rect_to_sector(radius_text, pos_rad, end_rad, textheight, bottom_is_outside ))
         cr.fill()
 
     @staticmethod
@@ -1281,7 +1287,7 @@ class FanChartWidget(FanChartBaseWidget):
             radiusin, radiusout = self.get_radiusinout_for_generation(0)
             if not child: radiusin = TRANSLATE_PX
             self.draw_person(cr, person, radiusin, radiusout, math.pi/2, math.pi/2 + 2*math.pi,
-                             0, False, userdata, thick = False, has_moregen_indicator = False)
+                             0, False, userdata, thick = False, has_moregen_indicator = False, is_central_person = True)
             #draw center disk to move chart
             cr.set_source_rgb(0, 0, 0) # black
             cr.move_to(TRANSLATE_PX, 0)
