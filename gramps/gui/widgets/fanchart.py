@@ -1369,7 +1369,7 @@ class FanChartWidget(FanChartBaseWidget):
                                                   state]
             self.shrink_parents(generation + 1, selected+1, current)
 
-    def change_slice(self, cell_address):
+    def toggle_cell_state(self, cell_address):
         generation, selected = cell_address
         if generation < 1:
             return
@@ -1488,7 +1488,7 @@ class FanChartWidget(FanChartBaseWidget):
 
     def do_mouse_click(self):
         # no drag occured, expand or collapse the section
-        self.change_slice(self._mouse_click_cell_address)
+        self.toggle_cell_state(self._mouse_click_cell_address)
         self._mouse_click = False
         self.queue_draw()
 
