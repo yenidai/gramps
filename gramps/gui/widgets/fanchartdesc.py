@@ -387,14 +387,10 @@ class FanChartDescWidget(FanChartBaseWidget):
 
     def nrgen(self):
         #compute the number of generations present
-        nrgen = None
         for gen in range(self.generations - 1, 0, -1):
             if len(self.gen2people[gen]) > 0:
-                nrgen = gen + 1
-                break
-        if nrgen is None:
-            nrgen = 1
-        return nrgen
+                return gen + 1
+        return 1
 
     def halfdist(self):
         """

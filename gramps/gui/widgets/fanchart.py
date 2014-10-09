@@ -1202,25 +1202,18 @@ class FanChartWidget(FanChartBaseWidget):
 
     def nrgen(self):
         #compute the number of generations present
-        nrgen = None
         for generation in range(self.generations - 1, 0, -1):
             for p in range(len(self.data[generation])):
                 (text, person, parents, child, userdata) = self.data[generation][p]
                 if person:
-                    nrgen = generation
-                    break
-            if nrgen is not None:
-                break
-        if nrgen is None:
-            nrgen = 1
-        return nrgen
+                    return generation
+        return 1
 
     def halfdist(self):
         """
         Compute the half radius of the circle
         """
-        nrgen = self.nrgen()
-        return PIXELS_PER_GENERATION * nrgen + self.CENTER + BORDER_EDGE_WIDTH
+        return PIXELS_PER_GENERATION * self.nrgen() + self.CENTER + BORDER_EDGE_WIDTH
 
     def get_radiusinout_for_generation(self,generation):
         outerradius=generation * PIXELS_PER_GENERATION + self.CENTER
