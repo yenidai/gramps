@@ -153,6 +153,14 @@ class FanChartDescWidget(FanChartBaseWidget):
         """
         Set the generations to max, and fill data structures with initial data.
         """
+
+        if self.form == FORM_CIRCLE:
+            self.rootangle_rad = [math.radians(0), math.radians(360)]
+        elif self.form == FORM_HALFCIRCLE:
+            self.rootangle_rad = [math.radians(90), math.radians(90 + 180)]
+        elif self.form == FORM_QUADRANT:
+            self.rootangle_rad = [math.radians(90), math.radians(90 + 90)]
+
         self.handle2desc = {}
         self.famhandle2desc = {}
         self.handle2fam = {} 
@@ -167,14 +175,6 @@ class FanChartDescWidget(FanChartBaseWidget):
             self.gen2fam[i] = []
             self.gen2people[i] = []
         self.gen2people[self.generations] = [] #indication of more children
-        self.rotfactor = 1
-        self.rotstartangle = 0
-        if self.form == FORM_HALFCIRCLE:
-            self.rotfactor = 1/2
-            self.rotangle = 90
-        elif self.form == FORM_QUADRANT:
-            self.rotangle = 180
-            self.rotfactor = 1/4
 
     def _fill_data_structures(self):
         self.set_generations()
@@ -214,7 +214,7 @@ class FanChartDescWidget(FanChartBaseWidget):
         #recursively fill in the datastructures:
         nrdesc = self._rec_fill_data(0, person, 0, self.generations)
         self.handle2desc[person.handle] += nrdesc
-        self._compute_angles()
+        self._compute_angles(*self.rootangle_rad)
 
     def _rec_fill_data(self, gen, person, pos, maxgen):
         """
@@ -271,27 +271,20 @@ class FanChartDescWidget(FanChartBaseWidget):
             totdesc += totdescfam
         return totdesc
 
-    def _compute_angles(self):
+    def _compute_angles(self, start_rad, stop_rad):
         """
         Compute the angles of the boxes
         """
         #first we compute the size of the slice.
-        nrgen = self.nrgen()
         #set angles root person
-        if self.form == FORM_CIRCLE:
-            slice = 2*pi
-            start = 0.
-        elif self.form == FORM_HALFCIRCLE:
-            slice = pi
-            start = pi/2
-        elif self.form == FORM_QUADRANT:
-            slice = pi/2
-            start = pi
+        slice = stop_rad - start_rad
+        start = start_rad
+        nr_gen = len(self.gen2people)-1
         gen = 0
         data = self.gen2people[gen][0]
         data[2] = start
         data[3] = slice
-        for gen in range(1, nrgen):
+        for gen in range(1, nr_gen):
             nrpeople = len(self.gen2people[gen])
             prevpartnerdatahandle = None
             offset = 0
@@ -626,6 +619,7 @@ class FanChartDescWidget(FanChartBaseWidget):
     def do_mouse_click(self):
         # no drag occured, expand or collapse the section
         self.change_slice(self._mouse_click_cell_address)
+        self._compute_angles(*self.rootangle_rad)
         self._mouse_click = False
         self.queue_draw()
 
@@ -663,8 +657,6 @@ class FanChartDescWidget(FanChartBaseWidget):
                 for entry in self.gen2fam[generation]:
                     if entry[5] == parpos:
                         entry[9] = NORMAL
-                    
-        self._compute_angles()
 
 class FanChartDescGrampsGUI(FanChartGrampsGUI):
     """ class for functions fanchart GUI elements will need in Gramps
