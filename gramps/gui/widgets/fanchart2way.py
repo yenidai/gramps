@@ -175,7 +175,7 @@ class FanChart2WayWidget(FanChartWidget, FanChartDescWidget):
         self.handle2fam = {} 
         self.gen2people = {}
         self.gen2fam = {}
-        self.gen2people[0] = [(None, False, 0, 2 * math.pi, '', 0, 0, [], NORMAL)]  # no center person
+        self.gen2people[0] = [(None, False, 0, 2 * math.pi, 0, 0, [], NORMAL)]  # no center person
         self.gen2fam[0] = []  # no families
         for i in range(1, self.generations_desc):
             self.gen2fam[i] = []
@@ -187,7 +187,7 @@ class FanChart2WayWidget(FanChartWidget, FanChartDescWidget):
         self.data = {}
         for i in range(self.generations_asc):
             # name, person, parents?, children?
-            self.data[i] = [(None,) * 5] * 2 ** i
+            self.data[i] = [(None,) * 4] * 2 ** i
             self.angle[i] = []
             angle = self.rootangle_rad_asc[0]
             slice = 1 / (2 ** i) * (self.rootangle_rad_asc[1] - self.rootangle_rad_asc[0])
@@ -202,40 +202,34 @@ class FanChart2WayWidget(FanChartWidget, FanChartDescWidget):
         if not person: 
             # nothing to do, just return
             return
-        else:
-            name = name_displayer.display(person)
         
         # Descendance part
         # person, duplicate or not, start angle, slice size,
         #                   text, parent pos in fam, nrfam, userdata, status
-        self.gen2people[0] = [[person, False, 0, 2 * math.pi, name, 0, 0, [], NORMAL]]
+        self.gen2people[0] = [[person, False, 0, 2 * math.pi, 0, 0, [], NORMAL]]
         self.handle2desc[self.rootpersonh] = 0
         # recursively fill in the datastructures:
-        nrdesc = self._rec_fill_data(0, person, 0, self.generations_desc)
+        nrdesc = self._rec_fill_data(0, person, 0, self.generations_desc + 1)
         self.handle2desc[person.handle] += nrdesc
         self._compute_angles(*self.rootangle_rad_desc)
 
         # Ascendance part
         parents = self._have_parents(person)
         child = self._have_children(person)
-        # Ascendance data structure is the text, the person object, parents, child and
+        # Ascendance data structure is the person object, parents, child and
         # list for userdata which we might fill in later.
-        self.data[0][0] = (name, person, parents, child, [])
+        self.data[0][0] = (person, parents, child, [])
         for current in range(1, self.generations_asc):
             parent = 0
             # name, person, parents, children
-            for (n, p, q, c, d) in self.data[current - 1]:
+            for (p, q, c, d) in self.data[current - 1]:
                 # Get father's and mother's details:
                 for person in [self._get_parent(p, True), self._get_parent(p, False)]:
-                    if person:
-                        name = name_displayer.display(person)
-                    else:
-                        name = None
                     if current == self.generations_asc - 1:
                         parents = self._have_parents(person)
                     else:
                         parents = None
-                    self.data[current][parent] = (name, person, parents, None, [])
+                    self.data[current][parent] = (person, parents, None, [])
                     if person is None:
                         # start,stop,male/right,state
                         self.angle[current][parent][2] = COLLAPSED
@@ -252,7 +246,7 @@ class FanChart2WayWidget(FanChartWidget, FanChartDescWidget):
         # compute the number of generations present
         for generation in range(self.generations_asc - 1, 0, -1):
             for p in range(len(self.data[generation])):
-                (text, person, parents, child, userdata) = self.data[generation][p]
+                (person, parents, child, userdata) = self.data[generation][p]
                 if person:
                     return generation
         return 1
@@ -278,6 +272,9 @@ class FanChart2WayWidget(FanChartWidget, FanChartDescWidget):
         return max(self.maxradius_desc(self.nrgen_desc()), self.maxradius_asc(self.nrgen_asc()))
 
     def get_radiusinout_for_generation_desc(self, generation):
+        """
+        Get the in and out radius for descendant generation (starting with center pers = 0)
+        """
         radius_first_gen = self.CENTER - (1 - PIXELS_PER_GENPERSON_RATIO) * PIXELS_PER_GEN_SMALL
         if generation < N_GEN_SMALL:
             radius_start = PIXELS_PER_GEN_SMALL * generation + radius_first_gen
@@ -288,7 +285,9 @@ class FanChart2WayWidget(FanChartWidget, FanChartDescWidget):
             return (radius_start, radius_start + PIXELS_PER_GEN_LARGE)
 
     def get_radiusinout_for_generation_asc(self, generation):
-        # get center pers outer radius
+        """
+        Get the in and out radius for ascendant generation (starting with center pers = 0)
+        """
         radiusin, radius_first_gen = self.get_radiusinout_for_generation_desc(0)
         outerradius = generation * PIXELS_PER_GENERATION + radius_first_gen
         innerradius = (generation - 1) * PIXELS_PER_GENERATION + radius_first_gen
@@ -297,6 +296,10 @@ class FanChart2WayWidget(FanChartWidget, FanChartDescWidget):
         return (innerradius, outerradius)
 
     def get_radiusinout_for_generation_pair(self, generation):
+        """
+        Get the in and out radius for descendant generation pair (starting with center pers = 0)
+        :return: (radiusin_pers, radiusout_pers, radiusin_partner, radiusout_partner)
+        """
         radiusin, radiusout = self.get_radiusinout_for_generation_desc(generation)
         radius_spread = radiusout - radiusin - PIXELS_CHILDREN_GAP - PIXELS_PARTNER_GAP
         
@@ -312,13 +315,13 @@ class FanChart2WayWidget(FanChartWidget, FanChartDescWidget):
         """
         for generation in range(self.generations_desc):
             for data in self.gen2people[generation]:
-                yield (data[0], data[7])
+                yield (data[0], data[6])
         for generation in range(self.generations_desc - 1):
             for data in self.gen2fam[generation]:
-                yield (data[8], data[7])
+                yield (data[7], data[6])
         for generation in range(self.generations_asc):
             for p in range(len(self.data[generation])):
-                (text, person, parents, child, userdata) = self.data[generation][p]
+                (person, parents, child, userdata) = self.data[generation][p]
                 yield (person, userdata)
 
     def innerpeople_generator(self):
@@ -334,14 +337,16 @@ class FanChart2WayWidget(FanChartWidget, FanChartDescWidget):
         cr.move_to(0, 0)
         cr.rotate(math.radians(self.rotate_value))
         delta = (self.rootangle_rad_asc[0] - self.rootangle_rad_desc[1]) / 2.0 % math.pi
-        gradient_asc = cairo.RadialGradient(0, 0, self.CENTER, 0, 0, self.maxradius_asc(self.generations_asc))
-        gradient_desc = cairo.RadialGradient(0, 0, self.CENTER, 0, 0, self.maxradius_desc(self.generations_desc))
+        radius_gradient_asc = 1.5 * self.maxradius_asc(self.generations_asc)
+        radius_gradient_desc = 1.5 * self.maxradius_desc(self.generations_desc)
+        gradient_asc = cairo.RadialGradient(0, 0, self.CENTER, 0, 0, radius_gradient_asc)
+        gradient_desc = cairo.RadialGradient(0, 0, self.CENTER, 0, 0, radius_gradient_desc)
         
         gradient_asc.add_color_stop_rgba(0.0, 0, 0, 1, 0.5)
         gradient_asc.add_color_stop_rgba(1.0, 1, 1, 1, 0.0)
         start_rad, stop_rad = self.rootangle_rad_asc[0] - delta, self.rootangle_rad_asc[1] + delta
         cr.set_source(gradient_asc)
-        cr.arc(0, 0, 1.5 * self.maxradius_asc(self.generations_asc), start_rad, stop_rad)
+        cr.arc(0, 0, radius_gradient_asc, start_rad, stop_rad)
         cr.fill()
         
         cr.move_to(0, 0)
@@ -349,7 +354,7 @@ class FanChart2WayWidget(FanChartWidget, FanChartDescWidget):
         gradient_desc.add_color_stop_rgba(1.0, 1, 1, 1, 0.0)
         start_rad, stop_rad = self.rootangle_rad_desc[0] - delta, self.rootangle_rad_desc[1] + delta
         cr.set_source(gradient_desc)
-        cr.arc(0, 0, 1.5 * self.maxradius_desc(self.generations_desc), start_rad, stop_rad)
+        cr.arc(0, 0, radius_gradient_desc, start_rad, stop_rad)
         cr.fill()
         cr.restore()
 
@@ -374,7 +379,7 @@ class FanChart2WayWidget(FanChartWidget, FanChartDescWidget):
         # Draw background
         self.draw_background(cr)
         # Draw center person:
-        (person, dup, start, slice, text, parentfampos, nrfam, userdata, status) \
+        (person, dup, start, slice, parentfampos, nrfam, userdata, status) \
  = self.gen2people[0][0]
         if person:
             gen_remapped = self.generations_desc - 1  # remapped generation
@@ -395,7 +400,7 @@ class FanChart2WayWidget(FanChartWidget, FanChartDescWidget):
         # Ascendance
         for generation in range(self.generations_asc - 1, 0, -1):
             for p in range(len(self.data[generation])):
-                (text, person, parents, child, userdata) = self.data[generation][p]
+                (person, parents, child, userdata) = self.data[generation][p]
                 if person:
                     start, stop, state = self.angle[generation][p]
                     if state in [NORMAL, EXPANDED]:
@@ -415,24 +420,22 @@ class FanChart2WayWidget(FanChartWidget, FanChartDescWidget):
             if gen > 0:
                 for pdata in self.gen2people[gen]:
                     # person, duplicate or not, start angle, slice size,
-                    #             text, parent pos in fam, nrfam, userdata, status
-                    pers, dup, start, slice, text, pospar, nrfam, userdata, status = \
-                        pdata
+                    #             parent pos in fam, nrfam, userdata, status
+                    pers, dup, start, slice, pospar, nrfam, userdata, status = pdata
                     if status != COLLAPSED:
-                        more_pers_flag = (gen == self.generations_desc - 1 
-                                        and self._have_children(pers))
                         self.draw_person(cr, pers, radiusin_pers, radiusout_pers,
                                          start, start + slice, gen_remapped, dup, userdata,
-                                         has_moregen_indicator=more_pers_flag, thick=status != NORMAL)
-            if gen < self.generations_desc - 1:
-                for famdata in self.gen2fam[gen]:
-                    # family, duplicate or not, start angle, slice size, 
-                    #       text, spouse pos in gen, nrchildren, userdata, status
-                    fam, dup, start, slice, text, posfam, nrchild, userdata, \
-                        partner, status = famdata
-                    if status != COLLAPSED:
-                        self.draw_person(cr, partner, radiusin_partner, radiusout_partner, start, start + slice,
-                                         gen_remapped, dup, userdata, thick=(status != NORMAL))
+                                         thick=status != NORMAL)
+            #if gen < self.generations_desc - 1:
+            for famdata in self.gen2fam[gen]:
+                # family, duplicate or not, start angle, slice size, 
+                #       spouse pos in gen, nrchildren, userdata, status
+                fam, dup, start, slice, posfam, nrchild, userdata, partner, status = famdata
+                if status != COLLAPSED:
+                    more_pers_flag = (gen == self.generations_desc - 1 
+                                    and self._have_children(pers))
+                    self.draw_person(cr, partner, radiusin_partner, radiusout_partner, start, start + slice,
+                                     gen_remapped, dup, userdata, thick=(status != NORMAL), has_moregen_indicator=more_pers_flag)
         cr.restore()
         
         if self.background in [BACKGROUND_GRAD_AGE, BACKGROUND_GRAD_PERIOD]:
@@ -448,14 +451,15 @@ class FanChart2WayWidget(FanChartWidget, FanChartDescWidget):
 
         if radius < TRANSLATE_PX:
             return None
-
-        if (radius < self.CENTER) or \
+        radius_parents = self.get_radiusinout_for_generation_asc(0)[1]
+        if (radius < radius_parents) or \
               (self.radian_in_bounds(self.rootangle_rad_desc[0], rads, self.rootangle_rad_desc[1])):
             cell_address = self.cell_address_under_cursor_desc(rads, radius)
             if cell_address is not None:
                 return (TYPE_DESCENDANCE,) + cell_address
         elif self.radian_in_bounds(self.rootangle_rad_asc[0], rads, self.rootangle_rad_asc[1]):
             cell_address = self.cell_address_under_cursor_asc(rads, radius)
+            if cell_address and cell_address[0]==0: return None  # There is a gap before first parents
             if cell_address is not None:
                 return (TYPE_ASCENDANCE,) + cell_address
 
