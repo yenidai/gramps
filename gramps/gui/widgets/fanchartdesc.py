@@ -166,7 +166,7 @@ class FanChartDescWidget(FanChartBaseWidget):
         self.handle2fam = {} 
         self.gen2people = {}
         self.gen2fam = {}
-        self.parentsroot = []
+        self.innerring = []
         self.gen2people[0] = [(None, False, 0, 2*pi, 0, 0, [], NORMAL)] #no center person
         self.gen2fam[0] = [] #no families
         self.angle = {}
@@ -188,7 +188,7 @@ class FanChartDescWidget(FanChartBaseWidget):
         self.gen2people[0] = [[person, False, 0, 2*pi, 0, 0, [], NORMAL]]
         self.handle2desc[self.rootpersonh] = 0
         # fill in data for the parents
-        self.parentsroot = []
+        self.innerring = []
         handleparents = []
         family_handle_list = person.get_parent_family_handle_list()
         if family_handle_list:
@@ -200,7 +200,7 @@ class FanChartDescWidget(FanChartBaseWidget):
                     if hparent and hparent not in handleparents:
                         parent = self.dbstate.db.get_person_from_handle(hparent)
                         if parent:
-                            self.parentsroot.append((parent, []))
+                            self.innerring.append((parent, []))
                             handleparents.append(hparent)
 
         #recursively fill in the datastructures:
@@ -411,7 +411,7 @@ class FanChartDescWidget(FanChartBaseWidget):
         """
         a generator over all people inside of the core person
         """
-        for parentdata in self.parentsroot:
+        for parentdata in self.innerring:
             parent, userdata = parentdata
             yield (parent, userdata)
 
@@ -447,16 +447,16 @@ class FanChartDescWidget(FanChartBaseWidget):
             r, g, b, a = self.background_box(person, 0, userdata)
             radiusin_pers,radiusout_pers,radiusin_partner,radiusout_partner = \
                 self.get_radiusinout_for_generation_pair(0)
-            if not self.parentsroot: radiusin_pers = TRANSLATE_PX
+            if not self.innerring: radiusin_pers = TRANSLATE_PX
             self.draw_person(cr, person, radiusin_pers, radiusout_pers, math.pi/2, math.pi/2 + 2*math.pi,
                              0, False, userdata, is_central_person =True)
             #draw center to move chart
             cr.set_source_rgb(0, 0, 0) # black
             cr.move_to(TRANSLATE_PX, 0)
             cr.arc(0, 0, TRANSLATE_PX, 0, 2 * math.pi)
-            if self.parentsroot: # has at least one parent
+            if self.innerring: # has at least one parent
                 cr.fill()
-                self.draw_parentring(cr)
+                self.draw_innerring_people(cr)
             else:
                 cr.stroke()
         #now write all the families and children
@@ -501,7 +501,7 @@ class FanChartDescWidget(FanChartBaseWidget):
         btype = TYPE_BOX_NORMAL
         if radius < TRANSLATE_PX:
             return None
-        elif (self.parentsroot and self.angle[-2] and 
+        elif (self.innerring and self.angle[-2] and 
                     radius < CHILDRING_WIDTH + TRANSLATE_PX):
             generation = -2  # indication of one of the children
         elif radius < self.CENTER:
@@ -533,13 +533,13 @@ class FanChartDescWidget(FanChartBaseWidget):
         return generation, selected, btype
 
 
-    def draw_parentring(self, cr):
+    def draw_innerring_people(self, cr):
         cr.move_to(TRANSLATE_PX + CHILDRING_WIDTH, 0)
         cr.set_source_rgb(0, 0, 0) # black
         cr.set_line_width(1)
         cr.arc(0, 0, TRANSLATE_PX + CHILDRING_WIDTH, 0, 2 * math.pi)
         cr.stroke()
-        nrparent = len(self.parentsroot)
+        nrparent = len(self.innerring)
         #Y axis is downward. positve angles are hence clockwise
         startangle = math.pi
         if nrparent <= 2:
@@ -548,7 +548,7 @@ class FanChartDescWidget(FanChartBaseWidget):
             angleinc = math.pi/2
         else:
             angleinc = 2 * math.pi / nrchild
-        for data in self.parentsroot:
+        for data in self.innerring:
             self.draw_innerring(cr, data[0], data[1], startangle, angleinc)
             startangle += angleinc
 
@@ -581,7 +581,7 @@ class FanChartDescWidget(FanChartBaseWidget):
         """
         generation, pos, btype = cell_address
         if generation == -2:
-            person, userdata = self.parentsroot[pos]
+            person, userdata = self.innerring[pos]
         elif btype == TYPE_BOX_NORMAL:
             # person, duplicate or not, start angle, slice size,
             #                   parent pos in fam, nrfam, userdata, status
