@@ -198,18 +198,12 @@ class FanChartDescWidget(FanChartBaseWidget):
                 family = self.dbstate.db.get_family_from_handle(family_handle)
                 if not family:
                     continue
-                hfather = family.get_father_handle()
-                if hfather and hfather not in handleparents:
-                    father = self.dbstate.db.get_person_from_handle(hfather)
-                    if father:
-                        self.parentsroot.append((father, []))
-                        handleparents.append(hfather)
-                hmother = family.get_mother_handle()
-                if hmother and hmother not in handleparents:
-                    mother = self.dbstate.db.get_person_from_handle(hmother)
-                    if mother:
-                        self.parentsroot.append((mother, []))
-                        handleparents.append(hmother)
+                for hparent in [family.get_father_handle(), family.get_mother_handle()]:
+                    if hparent and hparent not in handleparents:
+                        parent = self.dbstate.db.get_person_from_handle(hparent)
+                        if parent:
+                            self.parentsroot.append((parent, []))
+                            handleparents.append(hparent)
 
         #recursively fill in the datastructures:
         nrdesc = self._rec_fill_data(0, person, 0, self.generations)
