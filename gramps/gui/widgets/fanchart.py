@@ -1113,8 +1113,8 @@ class FanChartWidget(FanChartBaseWidget):
         elif self.form == FORM_QUADRANT:
             self.rootangle_rad = [math.radians(180), math.radians(270)]
         for i in range(self.generations):
-            # name, person, parents?, children?
-            self.data[i] = [(None,) * 5] * 2 ** i
+            # person, parents?, children?
+            self.data[i] = [(None,) * 4] * 2 ** i
             self.angle[i] = []
             angle = self.rootangle_rad[0]
             slice = 1/ (2 ** i) * (self.rootangle_rad[1] - self.rootangle_rad[0])
@@ -1126,15 +1126,11 @@ class FanChartWidget(FanChartBaseWidget):
     def _fill_data_structures(self):
         self.set_generations()
         person = self.dbstate.db.get_person_from_handle(self.rootpersonh)
-        if not person: 
-            name = None
-        else:
-            name = name_displayer.display(person)
         parents = self._have_parents(person)
         child = self._have_children(person)
         # our data structure is the text, the person object, parents, child and
         # list for userdata which we might fill in later.
-        self.data[0][0] = (name, person, parents, child, [])
+        self.data[0][0] = (person, parents, child, [])
         self.childrenroot = []
         if child:
             childlist = find_children(self.dbstate.db, person)
@@ -1143,23 +1139,19 @@ class FanChartWidget(FanChartBaseWidget):
                 if not child:
                     continue
                 else:
-                    self.childrenroot.append((name_displayer.display(child), child, True,
+                    self.childrenroot.append((child, True,
                                               self._have_children(child), []))
         for current in range(1, self.generations):
             parent = 0
-            # name, person, parents, children
-            for (n, p, q, c, d) in self.data[current - 1]:
+            # person, parents, children
+            for (p, q, c, d) in self.data[current - 1]:
                 # Get father's and mother's details:
                 for person in [self._get_parent(p, True), self._get_parent(p, False)]:
-                    if person:
-                        name = name_displayer.display(person)
-                    else:
-                        name = None
                     if current == self.generations - 1:
                         parents = self._have_parents(person)
                     else:
                         parents = None
-                    self.data[current][parent] = (name, person, parents, None, [])
+                    self.data[current][parent] = (person, parents, None, [])
                     if person is None:
                         # start,stop,male/right,state
                         self.angle[current][parent][2] = COLLAPSED
@@ -1204,7 +1196,7 @@ class FanChartWidget(FanChartBaseWidget):
         #compute the number of generations present
         for generation in range(self.generations - 1, 0, -1):
             for p in range(len(self.data[generation])):
-                (text, person, parents, child, userdata) = self.data[generation][p]
+                (person, parents, child, userdata) = self.data[generation][p]
                 if person:
                     return generation
         return 1
@@ -1228,7 +1220,7 @@ class FanChartWidget(FanChartBaseWidget):
         """
         for generation in range(self.generations):
             for p in range(len(self.data[generation])):
-                (text, person, parents, child, userdata) = self.data[generation][p]
+                (person, parents, child, userdata) = self.data[generation][p]
                 yield (person, userdata)
 
     def innerpeople_generator(self):
@@ -1236,7 +1228,7 @@ class FanChartWidget(FanChartBaseWidget):
         a generator over all people inside of the core person
         """
         for childdata in self.childrenroot:
-            (text, person, parents, child, userdata) = childdata
+            (person, parents, child, userdata) = childdata
             yield (person, userdata)
 
     def on_draw(self, widget, cr, scale=1.):
@@ -1264,7 +1256,7 @@ class FanChartWidget(FanChartBaseWidget):
         cr.rotate(math.radians(self.rotate_value))
         for generation in range(self.generations - 1, 0, -1):
             for p in range(len(self.data[generation])):
-                (text, person, parents, child, userdata) = self.data[generation][p]
+                (person, parents, child, userdata) = self.data[generation][p]
                 if person:
                     start, stop, state = self.angle[generation][p]
                     if state in [NORMAL, EXPANDED]:
@@ -1275,7 +1267,7 @@ class FanChartWidget(FanChartBaseWidget):
                                          has_moregen_indicator = (generation == self.generations - 1 and parents) )
         cr.restore()
         # Draw center person:
-        (text, person, parents, child, userdata) = self.data[0][0]
+        (person, parents, child, userdata) = self.data[0][0]
         if person:
             radiusin, radiusout = self.get_radiusinout_for_generation(0)
             if not child: radiusin = TRANSLATE_PX
@@ -1308,7 +1300,7 @@ class FanChartWidget(FanChartBaseWidget):
         else:
             angleinc = 2 * math.pi / nrchild
         for childdata in self.childrenroot:
-            (text, person, parents, child, userdata) = childdata
+            (person, parents, child, userdata) = childdata
             self.draw_innerring(cr, person, userdata, startangle, angleinc)
             startangle += angleinc
 
@@ -1459,7 +1451,7 @@ class FanChartWidget(FanChartBaseWidget):
             return 0
         selected = None
         for p in range(len(self.angle[generation])):
-            if self.data[generation][p][1]: # there is a person there
+            if self.data[generation][p][0]: # there is a person there
                 start, stop, state = self.angle[generation][p]
                 if state == COLLAPSED: continue
                 if self.radian_in_bounds(start, rads, stop):
@@ -1473,9 +1465,9 @@ class FanChartWidget(FanChartBaseWidget):
         """
         generation, pos = cell_address
         if generation == -2:
-            person = self.childrenroot[pos][1]
+            person = self.childrenroot[pos][0]
         else:
-            person = self.data[generation][pos][1]
+            person = self.data[generation][pos][0]
         return person
 
     def family_at(self, cell_address):
