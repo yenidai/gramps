@@ -232,7 +232,7 @@ class FanChartDescWidget(FanChartBaseWidget):
             self.gen2fam[gen].append([family, fam_duplicate, 0, 0, pos, 0, [], spouse, NORMAL])
             posfam = len(self.gen2fam[gen]) - 1
 
-            if not fam_duplicate:
+            if not fam_duplicate and gen < maxgen-1:
                 nrchild = len(family.get_child_ref_list())
                 self.gen2fam[gen][posfam][5] = nrchild
                 for child_ref in family.get_child_ref_list():
@@ -245,10 +245,11 @@ class FanChartDescWidget(FanChartBaseWidget):
                     self.gen2people[gen+1].append([child, child_dup, 0, 0, posfam, 0, [], NORMAL])
                     totdescfam += 1 #add this person as descendant
                     pospers = len(self.gen2people[gen+1]) - 1
-                    if not child_dup and gen+1 < maxgen:
+                    if not child_dup:
                         nrdesc = self._rec_fill_data(gen+1, child, pospers, maxgen)
                         self.handle2desc[child_ref.ref] += nrdesc
                         totdescfam += nrdesc # add children of him as descendants
+            if not fam_duplicate:
                 self.famhandle2desc[family_handle] = totdescfam
             totdesc += totdescfam
         return totdesc
@@ -266,12 +267,12 @@ class FanChartDescWidget(FanChartBaseWidget):
         data = self.gen2people[gen][0]
         data[2] = start
         data[3] = slice
-        for gen in range(1, nr_gen):
+        for gen in range(0, nr_gen):
             prevpartnerdatahandle = None
             offset = 0
-            for data_fam in self.gen2fam[gen-1]:  # for each partner/fam of gen-1 
-                #obtain start and stop of partner
-                persondata = self.gen2people[gen-1][data_fam[4]]
+            for data_fam in self.gen2fam[gen]:  # for each partner/fam of gen-1 
+                #obtain start and stop from the people of this partner
+                persondata = self.gen2people[gen][data_fam[4]]
                 dupfam = data_fam[1]
                 if dupfam:
                     # we don't show again the descendants here
@@ -322,9 +323,9 @@ class FanChartDescWidget(FanChartBaseWidget):
             
             prevfamdatahandle = None
             offset = 0
-            for persondata in self.gen2people[gen]:
+            for persondata in self.gen2people[gen+1] if gen < nr_gen else []:
                 #obtain start and stop of family this is child of
-                parentfamdata = self.gen2fam[gen-1][persondata[4]]
+                parentfamdata = self.gen2fam[gen][persondata[4]]
                 nrdescfam = 0
                 if not parentfamdata[1]:
                     nrdescfam = self.famhandle2desc[parentfamdata[0].handle]
@@ -396,7 +397,7 @@ class FanChartDescWidget(FanChartBaseWidget):
         for generation in range(self.generations):
             for data in self.gen2people[generation]:
                 yield (data[0], data[6])
-        for generation in range(self.generations-1):
+        for generation in range(self.generations):
             for data in self.gen2fam[generation]:
                 yield (data[7], data[6])
 
@@ -464,20 +465,20 @@ class FanChartDescWidget(FanChartBaseWidget):
                     pers, dup, start, slice, pospar, nrfam, userdata, status = \
                         pdata
                     if status != COLLAPSED:
-                        more_pers_flag = (gen == self.generations - 1 
-                                        and self._have_children(pers))
                         self.draw_person(cr, pers, radiusin_pers, radiusout_pers, 
                                          start, start + slice, gen, dup, userdata, 
-                                         has_moregen_indicator = more_pers_flag, thick=status != NORMAL)
-            if gen < self.generations-1:
-                for famdata in self.gen2fam[gen]:
-                    # family, duplicate or not, start angle, slice size, 
-                    #       spouse pos in gen, nrchildren, userdata, status
-                    fam, dup, start, slice, posfam, nrchild, userdata,\
-                        partner, status = famdata
-                    if status != COLLAPSED:
-                        self.draw_person(cr, partner, radiusin_partner, radiusout_partner, start, start + slice, 
-                                         gen, dup, userdata, thick = (status != NORMAL) )
+                                         thick=status != NORMAL)
+            #if gen < self.generations-1:
+            for famdata in self.gen2fam[gen]:
+                # family, duplicate or not, start angle, slice size, 
+                #       spouse pos in gen, nrchildren, userdata, status
+                fam, dup, start, slice, posfam, nrchild, userdata,\
+                    partner, status = famdata
+                if status != COLLAPSED:
+                    more_pers_flag = (gen == self.generations - 1 
+                                    and len(fam.get_child_ref_list()) > 0)
+                    self.draw_person(cr, partner, radiusin_partner, radiusout_partner, start, start + slice, 
+                                     gen, dup, userdata, thick = (status != NORMAL), has_moregen_indicator = more_pers_flag )
         cr.restore()
         
         if self.background in [BACKGROUND_GRAD_AGE, BACKGROUND_GRAD_PERIOD]:
@@ -507,7 +508,7 @@ class FanChartDescWidget(FanChartBaseWidget):
                 if radiusin_pers <= radius <= radiusout_pers:
                     generation, btype = gen, TYPE_BOX_NORMAL
                     break
-                if radiusin_partner <= radius <= radiusout_partner and gen < self.generations -1:
+                if radiusin_partner <= radius <= radiusout_partner:
                     generation, btype = gen, TYPE_BOX_FAMILY
                     break
 
