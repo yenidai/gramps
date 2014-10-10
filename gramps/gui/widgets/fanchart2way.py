@@ -209,7 +209,7 @@ class FanChart2WayWidget(FanChartWidget, FanChartDescWidget):
         self.gen2people[0] = [[person, False, 0, 2 * math.pi, 0, 0, [], NORMAL]]
         self.handle2desc[self.rootpersonh] = 0
         # recursively fill in the datastructures:
-        nrdesc = self._rec_fill_data(0, person, 0, self.generations_desc + 1)
+        nrdesc = self._rec_fill_data(0, person, 0, self.generations_desc)
         self.handle2desc[person.handle] += nrdesc
         self._compute_angles(*self.rootangle_rad_desc)
 
@@ -316,7 +316,7 @@ class FanChart2WayWidget(FanChartWidget, FanChartDescWidget):
         for generation in range(self.generations_desc):
             for data in self.gen2people[generation]:
                 yield (data[0], data[6])
-        for generation in range(self.generations_desc - 1):
+        for generation in range(self.generations_desc):
             for data in self.gen2fam[generation]:
                 yield (data[7], data[6])
         for generation in range(self.generations_asc):
@@ -435,7 +435,7 @@ class FanChart2WayWidget(FanChartWidget, FanChartDescWidget):
                 fam, dup, start, slice, posfam, nrchild, userdata, partner, status = famdata
                 if status != COLLAPSED:
                     more_pers_flag = (gen == self.generations_desc - 1 
-                                    and self._have_children(pers))
+                                    and len(fam.get_child_ref_list()) > 0) 
                     self.draw_person(cr, partner, radiusin_partner, radiusout_partner, start, start + slice,
                                      gen_remapped, dup, userdata, thick=(status != NORMAL), has_moregen_indicator=more_pers_flag)
         cr.restore()
@@ -480,7 +480,7 @@ class FanChart2WayWidget(FanChartWidget, FanChartDescWidget):
             if radiusin_pers <= radius <= radiusout_pers:
                 generation, btype = gen, TYPE_BOX_NORMAL
                 break
-            if radiusin_partner <= radius <= radiusout_partner and gen < self.generations_desc - 1:
+            if radiusin_partner <= radius <= radiusout_partner:
                 generation, btype = gen, TYPE_BOX_FAMILY
                 break
         # find what person is in this position:
