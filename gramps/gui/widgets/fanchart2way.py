@@ -334,15 +334,14 @@ class FanChart2WayWidget(FanChartWidget, FanChartDescWidget):
     def draw_background(self, cr):
         cr.save()
         
-        cr.move_to(0, 0)
         cr.rotate(math.radians(self.rotate_value))
         delta = (self.rootangle_rad_asc[0] - self.rootangle_rad_desc[1]) / 2.0 % math.pi
-        radius_gradient_asc = 1.5 * self.maxradius_asc(self.generations_asc)
-        radius_gradient_desc = 1.5 * self.maxradius_desc(self.generations_desc)
-        gradient_asc = cairo.RadialGradient(0, 0, self.CENTER, 0, 0, radius_gradient_asc)
-        gradient_desc = cairo.RadialGradient(0, 0, self.CENTER, 0, 0, radius_gradient_desc)
         
-        gradient_asc.add_color_stop_rgba(0.0, 0, 0, 1, 0.5)
+        cr.move_to(0, 0)
+        radius_gradient_asc = 1.5 * self.maxradius_asc(self.generations_asc)
+        gradient_asc = cairo.RadialGradient(0, 0, self.CENTER, 0, 0, radius_gradient_asc)
+        color = hex_to_rgb(self.grad_end)
+        gradient_asc.add_color_stop_rgba(0.0, color[0]/255, color[1]/255, color[2]/255, 0.5)
         gradient_asc.add_color_stop_rgba(1.0, 1, 1, 1, 0.0)
         start_rad, stop_rad = self.rootangle_rad_asc[0] - delta, self.rootangle_rad_asc[1] + delta
         cr.set_source(gradient_asc)
@@ -350,7 +349,10 @@ class FanChart2WayWidget(FanChartWidget, FanChartDescWidget):
         cr.fill()
         
         cr.move_to(0, 0)
-        gradient_desc.add_color_stop_rgba(0.0, 1, 0, 0, 0.5)
+        radius_gradient_desc = 1.5 * self.maxradius_desc(self.generations_desc)
+        gradient_desc = cairo.RadialGradient(0, 0, self.CENTER, 0, 0, radius_gradient_desc)
+        color = hex_to_rgb(self.grad_start)
+        gradient_desc.add_color_stop_rgba(0.0, color[0]/255, color[1]/255, color[2]/255, 0.5)
         gradient_desc.add_color_stop_rgba(1.0, 1, 1, 1, 0.0)
         start_rad, stop_rad = self.rootangle_rad_desc[0] - delta, self.rootangle_rad_desc[1] + delta
         cr.set_source(gradient_desc)
