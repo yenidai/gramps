@@ -213,9 +213,9 @@ class FanChartDescWidget(FanChartBaseWidget):
         Recursively fill in the data
         """
         totdesc = 0
-        nrfam = len(person.get_family_handle_list())
-        self.gen2people[gen][pos][5] = nrfam
-        for family_handle in person.get_family_handle_list():
+        marriage_handle_list = person.get_family_handle_list()
+        self.gen2people[gen][pos][5] = len(marriage_handle_list)
+        for family_handle in marriage_handle_list:
             totdescfam = 0
             family = self.dbstate.db.get_family_from_handle(family_handle)
 
@@ -229,18 +229,17 @@ class FanChartDescWidget(FanChartBaseWidget):
             fam_duplicate = family_handle in self.famhandle2desc
             # family, duplicate or not, start angle, slice size, 
             #   spouse pos in gen, nrchildren, userdata, parnter, status
-            self.gen2fam[gen].append([family, fam_duplicate, 0, 0, pos, 0, [],
-                                      spouse, NORMAL])
+            self.gen2fam[gen].append([family, fam_duplicate, 0, 0, pos, 0, [], spouse, NORMAL])
             posfam = len(self.gen2fam[gen]) - 1
 
             if not fam_duplicate:
                 nrchild = len(family.get_child_ref_list())
-                self.gen2fam[gen][-1][5] = nrchild
+                self.gen2fam[gen][posfam][5] = nrchild
                 for child_ref in family.get_child_ref_list():
                     child = self.dbstate.db.get_person_from_handle(child_ref.ref)
                     child_dup = child_ref.ref in self.handle2desc
                     if not child_dup:
-                        self.handle2desc[child_ref.ref] = 0
+                        self.handle2desc[child_ref.ref] = 0  # mark this child as processed
                     # person, duplicate or not, start angle, slice size,
                     #         parent pos in fam, nrfam, userdata, status
                     self.gen2people[gen+1].append([child, child_dup, 0, 0, posfam, 0, [], NORMAL])
@@ -260,84 +259,78 @@ class FanChartDescWidget(FanChartBaseWidget):
         """
         #first we compute the size of the slice.
         #set angles root person
-        slice = stop_rad - start_rad
-        start = start_rad
+        start, slice = start_rad, stop_rad - start_rad
         nr_gen = len(self.gen2people)-1
+        # Fill in central person angles
         gen = 0
         data = self.gen2people[gen][0]
         data[2] = start
         data[3] = slice
         for gen in range(1, nr_gen):
-            nrpeople = len(self.gen2people[gen])
             prevpartnerdatahandle = None
             offset = 0
-            for data in self.gen2fam[gen-1]:
+            for data_fam in self.gen2fam[gen-1]:  # for each partner/fam of gen-1 
                 #obtain start and stop of partner
-                partnerdata = self.gen2people[gen-1][data[4]]
-                dupfam = data[1]
+                persondata = self.gen2people[gen-1][data_fam[4]]
+                dupfam = data_fam[1]
                 if dupfam:
-                    # we don't show the descendants here, but in the first
-                    # occurrence of the family
-                    nrdescfam = 0
-                    nrdescpartner = self.handle2desc[partnerdata[0].handle]
-                    nrfam = partnerdata[5]
+                    # we don't show again the descendants here
                     nrdescfam = 0
                 else:
-                    nrdescfam = self.famhandle2desc[data[0].handle]
-                    nrdescpartner = self.handle2desc[partnerdata[0].handle]
-                    nrfam = partnerdata[5]
-                partstart = partnerdata[2]
-                partslice = partnerdata[3]
-                if prevpartnerdatahandle != partnerdata[0].handle:
-                    #reset the offset
+                    nrdescfam = self.famhandle2desc[data_fam[0].handle]
+                nrdescperson = self.handle2desc[persondata[0].handle]
+                nrfam = persondata[5]
+                personstart, personslice = persondata[2:4]
+                if prevpartnerdatahandle != persondata[0].handle:
+                    #partner of a new person: reset the offset
                     offset = 0
-                    prevpartnerdatahandle = partnerdata[0].handle
-                slice = partslice/(nrdescpartner+nrfam)*(nrdescfam+1)
-                if data[8] == COLLAPSED:
+                    prevpartnerdatahandle = persondata[0].handle
+                slice = personslice/(nrdescperson+nrfam)*(nrdescfam+1)
+                if data_fam[8] == COLLAPSED:
                     slice = 0
-                elif data[8] == EXPANDED:
-                    slice = partslice
+                elif data_fam[8] == EXPANDED:
+                    slice = personslice
                     
-                data[2] = partstart + offset
-                data[3] = slice
+                data_fam[2] = personstart + offset
+                data_fam[3] = slice
                 offset += slice
                     
-##                if nrdescpartner == 0:
+##                if nrdescperson == 0:
 ##                    #no offspring, draw as large as fraction of 
 ##                    #nr families
-##                    nrfam = partnerdata[6]
-##                    slice = partslice/nrfam
-##                    data[2] = partstart + offset
-##                    data[3] = slice
+##                    nrfam = persondata[6]
+##                    slice = personslice/nrfam
+##                    data_fam[2] = personstart + offset
+##                    data_fam[3] = slice
 ##                    offset += slice
 ##                elif nrdescfam == 0:
 ##                    #no offspring this family, but there is another 
 ##                    #family. We draw this as a weight of 1
-##                    nrfam = partnerdata[6]                        
-##                    slice = partslice/(nrdescpartner + nrfam - 1)*(nrdescfam+1)
-##                    data[2] = partstart + offset
-##                    data[3] = slice
+##                    nrfam = persondata[6]                        
+##                    slice = personslice/(nrdescperson + nrfam - 1)*(nrdescfam+1)
+##                    data_fam[2] = personstart + offset
+##                    data_fam[3] = slice
 ##                    offset += slice
 ##                else:
 ##                    #this family has offspring. We give it space for it's
 ##                    #weight in offspring
-##                    nrfam = partnerdata[6]
-##                    slice = partslice/(nrdescpartner + nrfam - 1)*(nrdescfam+1)
-##                    data[2] = partstart + offset
-##                    data[3] = slice
+##                    nrfam = persondata[6]
+##                    slice = personslice/(nrdescperson + nrfam - 1)*(nrdescfam+1)
+##                    data_fam[2] = personstart + offset
+##                    data_fam[3] = slice
 ##                    offset += slice
             
             prevfamdatahandle = None
             offset = 0
-            for data in self.gen2people[gen]:
+            for persondata in self.gen2people[gen]:
                 #obtain start and stop of family this is child of
-                parentfamdata = self.gen2fam[gen-1][data[4]]
+                parentfamdata = self.gen2fam[gen-1][persondata[4]]
                 nrdescfam = 0
                 if not parentfamdata[1]:
                     nrdescfam = self.famhandle2desc[parentfamdata[0].handle]
                 nrdesc = 0
-                if not data[1]:
-                    nrdesc = self.handle2desc[data[0].handle]
+                if not persondata[1]:
+                    nrdesc = self.handle2desc[persondata[0].handle]
                 famstart = parentfamdata[2]
                 famslice = parentfamdata[3]
                 nrchild = parentfamdata[5]
@@ -353,12 +346,12 @@ class FanChartDescWidget(FanChartBaseWidget):
                     #reset the offset
                     offset = 0
                     prevfamdatahandle = parentfamdata[0].handle
-                if data[7] == COLLAPSED:
+                if persondata[7] == COLLAPSED:
                     slice = 0
-                elif data[7] == EXPANDED:
+                elif persondata[7] == EXPANDED:
                     slice = famslice
-                data[2] = famstart + offset
-                data[3] = slice
+                persondata[2] = famstart + offset
+                persondata[3] = slice
                 offset += slice
 
     def nrgen(self):
