@@ -108,7 +108,7 @@ class FanChart2WayWidget(FanChartWidget, FanChartDescWidget):
         Fan Chart Widget. Handles visualization of data in self.data.
         See main() of FanChartGramplet for example of model format.
         """
-        self.set_values(None, 6, 5, True, True, BACKGROUND_GRAD_GEN, 'Sans', '#0000FF',
+        self.set_values(None, 6, 5, True, True, BACKGROUND_GRAD_GEN, True, 'Sans', '#0000FF',
                     '#FF0000', None, 0.5, ANGLE_WEIGHT, '#888a85')
         FanChartBaseWidget.__init__(self, dbstate, uistate, callback_popup)
 
@@ -126,7 +126,7 @@ class FanChart2WayWidget(FanChartWidget, FanChartDescWidget):
         self.prepare_background_box(self.generations_asc + self.generations_desc - 1)
         
     def set_values(self, root_person_handle, maxgen_asc, maxgen_desc, flipupsidedownname, twolinename, background,
-              fontdescr, grad_start, grad_end,
+              background_gradient, fontdescr, grad_start, grad_end,
               filter, alpha_filter, angle_algo, dupcolor):
         """
         Reset the values to be used:
@@ -137,6 +137,7 @@ class FanChart2WayWidget(FanChartWidget, FanChartDescWidget):
         :param flipupsidedownname: flip name on the left of the fanchart for the display of person's name
         :param background: config setting of which background procedure to use
         :type background: int
+        :param background_gradient: option to add an overall gradient for distinguishing Asc/Desc
         :param fontdescr: string describing the font to use
         :param grad_start: colors to use for background procedure
         :param grad_end: colors to use for background procedure
@@ -151,6 +152,7 @@ class FanChart2WayWidget(FanChartWidget, FanChartDescWidget):
         self.generations_asc = maxgen_asc
         self.generations_desc = maxgen_desc
         self.background = background
+        self.background_gradient = background_gradient
         self.fontdescr = fontdescr
         self.grad_start = grad_start
         self.grad_end = grad_end
@@ -379,7 +381,8 @@ class FanChart2WayWidget(FanChartWidget, FanChartDescWidget):
 
         cr.save()
         # Draw background
-        self.draw_background(cr)
+        if self.background_gradient:
+            self.draw_background(cr)
         # Draw center person:
         (person, dup, start, slice, parentfampos, nrfam, userdata, status) \
  = self.gen2people[0][0]
@@ -617,7 +620,7 @@ class FanChart2WayGrampsGUI(FanChartGrampsGUI):
         """
         root_person_handle = self.get_active('Person')
         self.fan.set_values(root_person_handle, self.generations_asc, self.generations_desc, self.flipupsidedownname, self.twolinename, self.background,
-                        self.fonttype, self.grad_start, self.grad_end,
+                        self.background_gradient, self.fonttype, self.grad_start, self.grad_end,
                         self.generic_filter, self.alpha_filter,
                         self.angle_algo, self.dupcolor)
         self.fan.reset()

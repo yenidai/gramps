@@ -59,6 +59,7 @@ class FanChart2WayView(fanchart2way.FanChart2WayGrampsGUI, NavigationView):
         ('interface.fanview-maxgen-asc', 4),
         ('interface.fanview-maxgen-desc', 4),
         ('interface.fanview-background', fanchart.BACKGROUND_GRAD_GEN),
+        ('interface.fanview-background-gradient', True),
         ('interface.fanview-radialtext', True),
         ('interface.fanview-twolinename', True),
         ('interface.fanview-flipupsidedownname', True),
@@ -82,6 +83,7 @@ class FanChart2WayView(fanchart2way.FanChart2WayGrampsGUI, NavigationView):
         self.generations_asc = self._config.get('interface.fanview-maxgen-asc') 
         self.generations_desc = self._config.get('interface.fanview-maxgen-desc') 
         self.background = self._config.get('interface.fanview-background')
+        self.background_gradient = self._config.get('interface.fanview-background-gradient')
         self.radialtext = self._config.get('interface.fanview-radialtext')
         self.twolinename = self._config.get('interface.fanview-twolinename')
         self.flipupsidedownname = self._config.get('interface.fanview-flipupsidedownname')
@@ -308,15 +310,21 @@ class FanChart2WayView(fanchart2way.FanChart2WayGrampsGUI, NavigationView):
                 callback=self.cb_update_background, valueactive=False,
                 setactive=nrval
                 )
+        
+        # show names one two line
+        configdialog.add_checkbox(table, 
+                _('Add global background colored gradient'), 
+                4, 'interface.fanview-background-gradient')
+
         #colors, stored as hex values
-        configdialog.add_color(table, _('Start gradient/Main color'), 4, 
+        configdialog.add_color(table, _('Start gradient/Main color'), 5, 
                         'interface.color-start-grad', col=1)
-        configdialog.add_color(table, _('End gradient/2nd color'), 5, 
+        configdialog.add_color(table, _('End gradient/2nd color'), 6, 
                         'interface.color-end-grad',  col=1)
-        configdialog.add_color(table, _('Color for duplicates'), 6,
+        configdialog.add_color(table, _('Color for duplicates'), 7,
                         'interface.duplicate-color', col=1)
         # algo for the fan angle distribution
-        configdialog.add_combo(table, _('Fan chart distribution'), 7,
+        configdialog.add_combo(table, _('Fan chart distribution'), 8,
                         'interface.angle-algorithm',
                         ((fanchart2way.ANGLE_CHEQUI, 
                           _('Homogeneous children distribution')),
@@ -328,12 +336,12 @@ class FanChart2WayView(fanchart2way.FanChart2WayGrampsGUI, NavigationView):
         # show names one two line
         configdialog.add_checkbox(table, 
                 _('Show names on two lines'), 
-                8, 'interface.fanview-twolinename')
+                9, 'interface.fanview-twolinename')
 
         # Flip names
         configdialog.add_checkbox(table, 
                 _('Flip name on the left of the fan'), 
-                9, 'interface.fanview-flipupsidedownname')
+                10, 'interface.fanview-flipupsidedownname')
 
         return _('Layout'), table
 
@@ -353,6 +361,8 @@ class FanChart2WayView(fanchart2way.FanChart2WayGrampsGUI, NavigationView):
                           self.cb_update_flipupsidedownname)
         self._config.connect('interface.fanview-twolinename',
                           self.cb_update_twolinename)
+        self._config.connect('interface.fanview-background-gradient',
+                          self.cb_update_background_gradient)
 
     def cb_update_maxgen(self, spinbtn, constant):
         self._config.set(constant, spinbtn.get_value_as_int())
@@ -374,6 +384,13 @@ class FanChart2WayView(fanchart2way.FanChart2WayGrampsGUI, NavigationView):
                 obj.get_model().get_iter_from_string('%d' % entry), 0))
         self._config.set(constant, val)
         self.background = val
+        self.update()
+
+    def cb_update_background_gradient(self, client, cnxn_id, entry, data):
+        """
+        Called when the configuration menu changes the twolinename setting. 
+        """
+        self.background_gradient = (entry == 'True')
         self.update()
 
     def cb_update_form(self, obj, constant):
