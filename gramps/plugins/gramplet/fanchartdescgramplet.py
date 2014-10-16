@@ -67,6 +67,7 @@ class FanChartDescGramplet(FanChartDescGrampsGUI, Gramplet):
         self.alpha_filter = 0.2
         self.form = FORM_HALFCIRCLE
         self.angle_algo = ANGLE_WEIGHT
+        self.flipupsidedownname = True
         self.set_fan(FanChartDescWidget(self.dbstate, self.uistate, self.on_popup))
         # Replace the standard textview with the fan chart widget:
         self.gui.get_container_widget().remove(self.gui.textview)

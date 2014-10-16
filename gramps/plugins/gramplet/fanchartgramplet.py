@@ -65,6 +65,7 @@ class FanChartGramplet(FanChartGrampsGUI, Gramplet):
         self.maxgen = 6
         self.background = BACKGROUND_SCHEME1
         self.childring = True
+        self.flipupsidedownname = True
         self.radialtext = True
         self.fonttype = 'Sans'
         self.grad_start = '#0000FF'
