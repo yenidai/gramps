@@ -386,20 +386,21 @@ class FanChart2WayWidget(FanChartWidget, FanChartDescWidget):
         # Draw center person:
         (person, dup, start, slice, parentfampos, nrfam, userdata, status) \
  = self.gen2people[0][0]
-        if person:
-            gen_remapped = self.generations_desc - 1  # remapped generation
-            if gen_remapped == 0: gen_remapped = (self.generations_desc + self.generations_asc - 1)  # remapped generation
-            radiusin_pers, radiusout_pers, radiusin_partner, radiusout_partner = \
-                self.get_radiusinout_for_generation_pair(0)
-            radiusin = TRANSLATE_PX
-            radiusout = radiusout_pers
-            self.draw_person(cr, person, radiusin, radiusout, math.pi / 2, math.pi / 2 + 2 * math.pi,
-                             gen_remapped, False, userdata, is_central_person=True)
-            # draw center to move chart
-            cr.set_source_rgb(0, 0, 0)  # black
-            cr.move_to(TRANSLATE_PX, 0)
-            cr.arc(0, 0, TRANSLATE_PX, 0, 2 * math.pi)
-            cr.fill()
+        if not person:
+            return
+        gen_remapped = self.generations_desc - 1  # remapped generation
+        if gen_remapped == 0: gen_remapped = (self.generations_desc + self.generations_asc - 1)  # remapped generation
+        radiusin_pers, radiusout_pers, radiusin_partner, radiusout_partner = \
+            self.get_radiusinout_for_generation_pair(0)
+        radiusin = TRANSLATE_PX
+        radiusout = radiusout_pers
+        self.draw_person(cr, person, radiusin, radiusout, math.pi / 2, math.pi / 2 + 2 * math.pi,
+                         gen_remapped, False, userdata, is_central_person=True)
+        # draw center to move chart
+        cr.set_source_rgb(0, 0, 0)  # black
+        cr.move_to(TRANSLATE_PX, 0)
+        cr.arc(0, 0, TRANSLATE_PX, 0, 2 * math.pi)
+        cr.fill()
 
         cr.rotate(math.radians(self.rotate_value))
         # Ascendance
