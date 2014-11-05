@@ -264,7 +264,7 @@ class FanChart2WayWidget(FanChartWidget, FanChartDescWidget):
         """
         Compute the current radius of the descendant circle
         """
-        radiusin_pers, radius_desc, radiusin_partner, radiusout_partner = self.get_radiusinout_for_generation_pair(generation)
+        radiusin_pers, radiusout_pers, radiusin_partner, radius_desc = self.get_radiusinout_for_generation_pair(generation-1)
         return radius_desc + BORDER_EDGE_WIDTH
 
     def halfdist(self):
