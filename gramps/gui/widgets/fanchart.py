@@ -1545,6 +1545,7 @@ class FanChartGrampsGUI(object):
         edit_item.connect("activate", self.edit_person_cb, person_handle)
         edit_item.show()
         menu.append(edit_item)
+        # action related to the clicked family (when there is one)
         if family_handle:
             family = self.dbstate.db.get_family_from_handle(family_handle)
             edit_fam_item = Gtk.ImageMenuItem.new_from_stock(
@@ -1618,7 +1619,8 @@ class FanChartGrampsGUI(object):
         # Go over siblings and build their menu
         item = Gtk.MenuItem(label=_("Siblings"))
         pfam_list = person.get_parent_family_handle_list()
-        no_siblings = 1
+        siblings = []
+        step_siblings = []
         for f in pfam_list:
             fam = self.dbstate.db.get_family_from_handle(f)
             sib_list = fam.get_child_ref_list()
@@ -1626,34 +1628,51 @@ class FanChartGrampsGUI(object):
                 sib_id = sib_ref.ref
                 if sib_id == person.get_handle():
                     continue
-                sib = self.dbstate.db.get_person_from_handle(sib_id)
-                if not sib:
-                    continue
-
-                if no_siblings:
-                    no_siblings = 0
-                    item.set_submenu(Gtk.Menu())
-                    sib_menu = item.get_submenu()
-
-                if find_children(self.dbstate.db,sib):
-                    label = Gtk.Label(label='<b><i>%s</i></b>' % escape(name_displayer.display(sib)))
-                else:
-                    label = Gtk.Label(label=escape(name_displayer.display(sib)))
-
-                go_image = Gtk.Image.new_from_stock(Gtk.STOCK_JUMP_TO, Gtk.IconSize.MENU)
-                go_image.show()
-                sib_item = Gtk.ImageMenuItem(None)
-                sib_item.set_image(go_image)
-                label.set_use_markup(True)
-                label.show()
-                label.set_alignment(0,0)
-                sib_item.add(label)
-                linked_persons.append(sib_id)
-                sib_item.connect("activate", self.on_childmenu_changed, sib_id)
-                sib_item.show()
-                sib_menu.append(sib_item)
-
-        if no_siblings:
+                siblings.append(sib_id)
+        # Collect a list of per-step-family step-siblings
+            for parent_h in [fam.get_father_handle(), fam.get_mother_handle()]:
+                parent = self.dbstate.db.get_person_from_handle(parent_h)
+                other_families = [self.dbstate.db.get_family_from_handle(fam_id)
+                                  for fam_id in parent.get_family_handle_list()
+                                  if fam_id not in pfam_list]
+                for step_fam in other_families:
+                    fam_stepsiblings = [sib_ref.ref 
+                                        for sib_ref in step_fam.get_child_ref_list()
+                                        if not (sib_ref.ref == person.get_handle())]
+                    if fam_stepsiblings:
+                        step_siblings.append(fam_stepsiblings)
+        
+        # Add siblings sub-menu with a bar between each siblings group
+        if siblings or step_siblings:
+            item.set_submenu(Gtk.Menu())
+            sib_menu = item.get_submenu()
+            sibs = [siblings]+step_siblings
+            for sib_group in sibs:
+                for sib_id in sib_group:
+                    sib = self.dbstate.db.get_person_from_handle(sib_id)
+                    if not sib:
+                        continue
+                    if find_children(self.dbstate.db,sib):
+                        label = Gtk.Label(label='<b><i>%s</i></b>' % escape(name_displayer.display(sib)))
+                    else:
+                        label = Gtk.Label(label=escape(name_displayer.display(sib)))
+                    go_image = Gtk.Image.new_from_stock(Gtk.STOCK_JUMP_TO, Gtk.IconSize.MENU)
+                    go_image.show()
+                    sib_item = Gtk.ImageMenuItem(None)
+                    sib_item.set_image(go_image)
+                    label.set_use_markup(True)
+                    label.show()
+                    label.set_alignment(0,0)
+                    sib_item.add(label)
+                    linked_persons.append(sib_id)
+                    sib_item.connect("activate", self.on_childmenu_changed, sib_id)
+                    sib_item.show()
+                    sib_menu.append(sib_item)
+                if sibs.index(sib_group) < len(sibs)-1:
+                    sep = Gtk.SeparatorMenuItem.new()
+                    sep.show()
+                    sib_menu.append(sep)
+        else:
             item.set_sensitive(0)
         item.show()
         menu.append(item)
