@@ -503,6 +503,7 @@ class FanChartBaseWidget(Gtk.DrawingArea):
         cr.move_to(radiusout * math.cos(start_rad), radiusout * math.sin(start_rad))
         cr.arc(0, 0, radiusout, start_rad, stop_rad)
         if (start_rad - stop_rad) % (2 * math.pi) > 1e-5:
+            # we draw radial borders only when the box is not the whole disk
             radial_motion_type = cr.line_to
         else:
             radial_motion_type = cr.move_to
@@ -669,7 +670,7 @@ class FanChartBaseWidget(Gtk.DrawingArea):
             if h > height_pixels:
                 #we could not fix it, no text
                 layout.set_text("",0)
-        layout.context_changed()
+        #layout.context_changed()
         return layout.get_pixel_size()
 
     def draw_text(self, cr, text, radiusin, radiusout, start_rad, stop_rad,
@@ -724,17 +725,19 @@ class FanChartBaseWidget(Gtk.DrawingArea):
 
         Text not fitting a single line will be char-wrapped away.
         """
+        cr.save()
         layout = self.create_pango_layout(text)
         layout.set_font_description(font)
         layout.set_wrap(Pango.WrapMode.WORD_CHAR)
 
         # get height of text:
-        textheight=layout.get_size()[1]/Pango.SCALE
+        textheight=layout.get_pixel_size()[1]
         radius_text=(radiusin+radiusout)/2.0
 
         # 1. compute available text space
         avail_height = radiusout - radiusin - 2.0 * PAD_TEXT
         avail_width = (stop_rad - start_rad) * radius_text - 2.0 * PAD_TEXT
+        layout.set_width(Pango.SCALE * avail_width)
 
         w, h = self.wrap_truncate_layout(layout, font, avail_width, avail_height, tryrescale=True)
 
@@ -745,11 +748,13 @@ class FanChartBaseWidget(Gtk.DrawingArea):
         # 3. Use the layout to provide us the metrics of the text box
         cr.new_path()
         PangoCairo.layout_path(cr, layout)
+        # Beware that glyphs are only added to the path when they are visible
 
         # 4. The moment of truth: map the text box onto the sector, and render!
         warpPath(cr, \
             self.create_map_rect_to_sector(radius_text, pos_rad, end_rad, textheight, bottom_is_outside ))
         cr.fill()
+        cr.restore()
 
     @staticmethod
     def create_map_rect_to_sector(radius, start_rad, stop_rad, textheight, bottom_is_outside = False):
