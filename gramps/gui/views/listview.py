@@ -33,7 +33,7 @@ import pickle
 import time
 import logging
 
-LOG = logging.getLogger('.gui.listview')
+LOG = logging.getLogger(__name__)
 
 #----------------------------------------------------------------
 #
@@ -51,7 +51,6 @@ from gi.repository import Pango
 #----------------------------------------------------------------
 from .pageview import PageView
 from .navigationview import NavigationView
-from ..actiongroup import ActionGroup
 from ..columnorder import ColumnOrder
 from gramps.gen.config import config
 from gramps.gen.errors import WindowActiveError
@@ -148,7 +147,11 @@ class ListView(NavigationView):
                                     self.search_build_tree)
         filter_box = self.search_bar.build()
 
+        hbox = Gtk.Box()
+        self.build_fastfilter(hbox)
+
         self.list = Gtk.TreeView()
+        self.list.set_rules_hint(True)
         self.list.set_headers_visible(True)
         self.list.set_headers_clickable(True)
         self.list.set_fixed_height_mode(True)
@@ -178,8 +181,10 @@ class ListView(NavigationView):
         scrollwindow.set_shadow_type(Gtk.ShadowType.ETCHED_IN)
         scrollwindow.add(self.list)
 
+        hbox.pack_start(scrollwindow, True, True, 0)
+
         self.vbox.pack_start(filter_box, False, True, 0)
-        self.vbox.pack_start(scrollwindow, True, True, 0)
+        self.vbox.pack_start(hbox, True, True, 0)
 
         self.renderer = Gtk.CellRendererText()
         self.renderer.set_property('ellipsize', Pango.EllipsizeMode.END)
@@ -194,6 +199,9 @@ class ListView(NavigationView):
         self.setup_filter()
         return self.vbox
 
+    def build_fastfilter(self, hbox):
+        pass
+
     def define_actions(self):
         """
         Required define_actions function for PageView. Builds the action
@@ -204,23 +212,23 @@ class ListView(NavigationView):
         
         NavigationView.define_actions(self)
 
-        self.edit_action = ActionGroup(name=self.title + '/ChangeOrder')
+        self.edit_action = Gtk.ActionGroup(name=self.title + '/ChangeOrder')
         self.edit_action.add_actions([
-                ('Add', 'list-add', _("_Add..."), "<PRIMARY>Insert",
-                    self.ADD_MSG, self.add),
-                ('Remove', 'list-remove', _("_Remove"), "<PRIMARY>Delete",
-                    self.DEL_MSG, self.remove),
+                ('Add', Gtk.STOCK_ADD, _("_Add..."), "<PRIMARY>Insert", 
+                    self.ADD_MSG, self.add), 
+                ('Remove', Gtk.STOCK_REMOVE, _("_Remove"), "<PRIMARY>Delete", 
+                    self.DEL_MSG, self.remove), 
                 ('Merge', 'gramps-merge', _('_Merge...'), None,
                     self.MERGE_MSG, self.merge),
                 ('ExportTab', None, _('Export View...'), None, None,
-                    self.export),
+                    self.export), 
                 ])
 
         self._add_action_group(self.edit_action)
 
-        self._add_action('Edit', 'gtk-edit', _("action|_Edit..."),
-                         accel="<PRIMARY>Return",
-                         tip=self.EDIT_MSG,
+        self._add_action('Edit', Gtk.STOCK_EDIT, _("action|_Edit..."), 
+                         accel="<PRIMARY>Return", 
+                         tip=self.EDIT_MSG, 
                          callback=self.edit)
         
     def build_columns(self):
@@ -231,7 +239,7 @@ class ListView(NavigationView):
         index = 0
         for pair in self.column_order():
             if not pair[0]: continue
-            col_name, col_type, col_icon = self.COLUMNS[pair[1]]
+            col_name, col_type, col_icon, col_sort = self.COLUMNS[pair[1]]
 
             if col_type == ICON:
                 column = Gtk.TreeViewColumn(col_name, self.pb_renderer)
@@ -245,7 +253,7 @@ class ListView(NavigationView):
 
             if col_icon is not None:
                 image = Gtk.Image()
-                image.set_from_icon_name(col_icon, Gtk.IconSize.MENU)
+                image.set_from_stock(col_icon, Gtk.IconSize.MENU)
                 image.set_tooltip_text(col_name)
                 image.show()
                 column.set_widget(image)
@@ -253,7 +261,10 @@ class ListView(NavigationView):
             if self.model and self.model.color_column() is not None:
                 column.set_cell_data_func(self.renderer, self.foreground_color)
 
-            column.connect('clicked', self.column_clicked, index)
+            if col_sort is not None:
+                column.set_sort_column_id(col_sort)
+            else:
+                column.set_sort_column_id(pair[1])
 
             column.set_resizable(True)
             column.set_clickable(True)
@@ -266,13 +277,13 @@ class ListView(NavigationView):
 
     def icon(self, column, renderer, model, iter_, col_num):
         '''
-        Set the icon-name property of the cell renderer.  We use a cell data
+        Set the stock icon property of the cell renderer.  We use a cell data
         function because there is a problem returning None from a model.
         '''
-        icon_name = model.get_value(iter_, col_num)
-        if icon_name == '':
-            icon_name = None
-        renderer.set_property('icon-name', icon_name)
+        stock_id = model.get_value(iter_, col_num)
+        if stock_id == '':
+            stock_id = None
+        renderer.set_property('stock_id', stock_id)
 
     def foreground_color(self, column, renderer, model, iter_, data=None):
         '''
@@ -319,9 +330,8 @@ class ListView(NavigationView):
                 if self.model:
                     self.list.set_model(None)
                     self.model.destroy()
-                self.model = self.make_model(self.dbstate.db, self.sort_col, 
-                                             search=filter_info,
-                                             sort_map=self.column_order())
+                self.model = self.make_model(self.dbstate.db, 
+                                             search=filter_info)
             else:
                 #the entire data to show is already in memory.
                 #run only the part that determines what to show
@@ -329,12 +339,13 @@ class ListView(NavigationView):
                 self.model.set_search(filter_info)
                 self.model.rebuild_data()
             
+            self.model.connect('rows-reordered', self.rows_reordered)
+
             cput1 = time.clock()
             self.build_columns()
             cput2 = time.clock()
             self.list.set_model(self.model)
             cput3 = time.clock()
-            self.__display_column_sort()
             self.goto_active(None)
 
             self.dirty = False
@@ -389,6 +400,9 @@ class ListView(NavigationView):
         else:
             self.search_bar.show()
 
+    def select_fastfilter(self, handle):
+        pass
+
     ####################################################################
     # Navigation
     ####################################################################
@@ -411,6 +425,8 @@ class ListView(NavigationView):
         """
         if not handle or handle in self.selected_handles():
             return
+
+        self.select_fastfilter(handle)
 
         iter_ = self.model.get_iter_from_handle(handle)
         if iter_:
@@ -472,7 +488,7 @@ class ListView(NavigationView):
         return None
 
     def drag_begin(self, widget, context):
-        widget.drag_source_set_icon_name(self.get_stock())
+        widget.drag_source_set_icon_stock(self.get_stock())
         
     def drag_data_get(self, widget, context, sel_data, info, time):
         selected_ids = self.selected_handles()
@@ -537,11 +553,11 @@ class ListView(NavigationView):
         prompt = True
         if len(self.selected_handles()) > 1:
             q = QuestionDialog2(
-                _("Multiple Selection Delete"),
+                _("Confirm every deletion?"),
                 _("More than one item has been selected for deletion. "
-                  "Select the option indicating how to delete the items:"),
-                _("Delete All"),
-                _("Confirm Each Delete"))
+                  "Ask before deleting each one?"),
+                _("No"),
+                _("Yes"))
             prompt = not q.run()
             
         if not prompt:
@@ -596,74 +612,13 @@ class ListView(NavigationView):
     ####################################################################
     # Signal handlers
     ####################################################################
-    def column_clicked(self, obj, data):
+    def rows_reordered(self, model, p1, p2, p3):
         """
-        Called when a column is clicked.
-
-        obj     A TreeViewColumn object of the column clicked
-        data    The column index
+        Called when the model is sorted.
         """
-        self.uistate.set_busy_cursor(True)
-        self.uistate.push_message(self.dbstate, _("Column clicked, sorting..."))
-        cput = time.clock()
-        same_col = False
-        if self.sort_col != data:
-            order = Gtk.SortType.ASCENDING
-        else:
-            same_col = True
-            if (self.columns[data].get_sort_order() == Gtk.SortType.DESCENDING
-                or not self.columns[data].get_sort_indicator()):
-                order = Gtk.SortType.ASCENDING
-            else:
-                order = Gtk.SortType.DESCENDING
-
-        self.sort_col = data
-        self.sort_order = order
-        handle = self.first_selected()
-
-        if not self.search_bar.is_visible():
-            filter_info = (True, self.generic_filter, False)
-        else:
-            value = self.search_bar.get_value()
-            filter_info = (False, value, value[0] in self.exact_search())
-
-        if same_col:
-            # activate when https://bugzilla.gnome.org/show_bug.cgi?id=684558
-            # is resolved
-            if False:
-                self.model.reverse_order()
-            else:
-                ## GTK 3.6 rows_reordered not exposed by gi, we need to reconnect
-                ## model to obtain desired effect, but this collapses nodes ...
-                self.list.set_model(None)
-                self.model.reverse_order()
-                self.list.set_model(self.model)
-        else:
-            self.model = self.make_model(self.dbstate.db, self.sort_col, 
-                                         self.sort_order, 
-                                         search=filter_info, 
-                                         sort_map=self.column_order())
-
-            self.list.set_model(self.model)
-
-        self.__display_column_sort()
-
-        if handle:
-            self.goto_handle(handle)
-
-        # set the search column to be the sorted column
-        search_col = self.column_order()[data][1]
-        self.list.set_search_column(search_col)
-        
-        self.uistate.set_busy_cursor(False)
-        
-        LOG.debug('   ' + self.__class__.__name__ + ' column_clicked ' +
-                    str(time.clock() - cput) + ' sec')
-
-    def __display_column_sort(self):
-        for i, c in enumerate(self.columns):
-            c.set_sort_indicator(i == self.sort_col)
-        self.columns[self.sort_col].set_sort_order(self.sort_order)
+        store, paths = self.selection.get_selected_rows()
+        if paths:
+            self.list.scroll_to_cell(paths[0], None, 1, 0.5, 0)
 
     def connect_signals(self):
         """
@@ -999,13 +954,13 @@ class ListView(NavigationView):
             _("Export View as Spreadsheet"), 
             self.uistate.window, 
             Gtk.FileChooserAction.SAVE, 
-            (_('_Cancel'), Gtk.ResponseType.CANCEL,
-             _('_Save'), Gtk.ResponseType.OK))
+            (Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL, 
+             Gtk.STOCK_SAVE, Gtk.ResponseType.OK))
         chooser.set_do_overwrite_confirmation(True)
 
         combobox = Gtk.ComboBoxText()
         label = Gtk.Label(label=_("Format:"))
-        label.set_halign(Gtk.Align.END)
+        label.set_alignment(1.0, 0.5)
         box = Gtk.Box()
         box.pack_start(label, True, True, padding=12)
         box.pack_start(combobox, False, False, 0)

@@ -30,7 +30,7 @@ Place Model.
 #
 #-------------------------------------------------------------------------
 import logging
-_LOG = logging.getLogger(".gui.views.treemodels.placemodel")
+_LOG = logging.getLogger(__name__)
 
 #-------------------------------------------------------------------------
 #
@@ -44,10 +44,9 @@ from gi.repository import Gtk
 # GRAMPS modules
 #
 #-------------------------------------------------------------------------
-from gramps.gen.lib import Place, PlaceType
+from gramps.gen.lib.placetype import PlaceType
 from gramps.gen.datehandler import format_time
 from gramps.gen.utils.place import conv_lat_lon
-from gramps.gen.display.place import displayer as place_displayer
 from .flatbasemodel import FlatBaseModel
 from .treebasemodel import TreeBaseModel
 
@@ -82,19 +81,28 @@ class PlaceBaseModel(object):
             self.column_change,
             self.column_tag_color
             ]
-        self.smap = [
-            self.column_name,
-            self.column_id,
-            self.column_title,
-            self.column_type,
-            self.column_code,
-            self.sort_latitude,
-            self.sort_longitude,
-            self.column_private,
-            self.column_tags,
-            self.sort_change,
-            self.column_tag_color
-            ]
+
+        self._column_types = [str, str, str, str, str, str, str, str, str, str,
+                              str, str, str, int, str]
+
+    def _get_row(self, data, handle):
+        row = [None] * len(self._column_types)
+        row[0] = self.column_name(data)
+        row[1] = self.column_id(data)
+        row[2] = self.column_title(data)
+        row[3] = self.column_type(data)
+        row[4] = self.column_code(data)
+        row[5] = self.column_latitude(data)
+        row[6] = self.column_longitude(data)
+        row[7] = self.column_private(data)
+        row[8] = self.column_tags(data)
+        row[9] = self.column_change(data)
+        row[10] = self.column_tag_color(data)
+        row[11] = self.sort_latitude(data)
+        row[12] = self.sort_longitude(data)
+        row[13] = self.sort_change(data)
+        row[14] = handle
+        return row
 
     def destroy(self):
         """
@@ -104,7 +112,6 @@ class PlaceBaseModel(object):
         self.gen_cursor = None
         self.map = None
         self.fmap = None
-        self.smap = None
 
     def color_column(self):
         """
@@ -112,16 +119,17 @@ class PlaceBaseModel(object):
         """
         return 10
 
-    def on_get_n_columns(self):
-        return len(self.fmap)+1
+    def total(self):
+        """
+        Total number of items.
+        """
+        return self.db.get_number_of_places()
 
     def column_title(self, data):
-        place = Place()
-        place.unserialize(data)
-        return place_displayer.display(self.db, place)
+        return data[2]
 
     def column_name(self, data):
-        return str(data[6][0])
+        return data[6]
 
     def column_longitude(self, data):
         if not data[3]:
@@ -156,13 +164,13 @@ class PlaceBaseModel(object):
         return value 
 
     def column_id(self, data):
-        return str(data[1])
+        return data[1]
 
     def column_type(self, data):
         return str(PlaceType(data[8]))
 
     def column_code(self, data):
-        return str(data[9])
+        return data[9]
 
     def column_private(self, data):
         if data[17]:
@@ -172,7 +180,7 @@ class PlaceBaseModel(object):
             return ''
     
     def sort_change(self, data):
-        return "%012x" % data[15]
+        return data[15]
     
     def column_change(self, data):
         return format_time(data[15])
@@ -214,12 +222,10 @@ class PlaceListModel(PlaceBaseModel, FlatBaseModel):
     """
     Flat place model.  (Original code in PlaceBaseModel).
     """
-    def __init__(self, db, scol=0, order=Gtk.SortType.ASCENDING, search=None,
-                 skip=set(), sort_map=None):
+    def __init__(self, db, search=None, skip=set()):
 
         PlaceBaseModel.__init__(self, db)
-        FlatBaseModel.__init__(self, db, scol, order, search=search, skip=skip,
-                               sort_map=sort_map)
+        FlatBaseModel.__init__(self, db, search, skip)
 
     def destroy(self):
         """
@@ -237,14 +243,10 @@ class PlaceTreeModel(PlaceBaseModel, TreeBaseModel):
     """
     Hierarchical place model.
     """
-    def __init__(self, db, scol=0, order=Gtk.SortType.ASCENDING, search=None,
-                 skip=set(), sort_map=None):
+    def __init__(self, db, search=None, skip=set()):
 
         PlaceBaseModel.__init__(self, db)
-        TreeBaseModel.__init__(self, db, scol=scol, order=order,
-                               search=search, skip=skip, sort_map=sort_map,
-                               nrgroups=3,
-                               group_can_have_handle=True)
+        TreeBaseModel.__init__(self, db, search, skip)
 
     def destroy(self):
         """
@@ -274,19 +276,14 @@ class PlaceTreeModel(PlaceBaseModel, TreeBaseModel):
         handle      The handle of the gramps object.
         data        The object data.
         """
-        sort_key = self.sort_func(data)
         if len(data[5]) > 0:
             parent = data[5][0][0]
         else:
             parent = None
 
-        # Add the node as a root node if the parent is not in the tree.  This
-        # will happen when the view is filtered.
-        if not self._get_node(parent):
-            parent = None
-
-        self.add_node(parent, handle, sort_key, handle, add_parent=False)
-
-    def column_header(self, data):
-        # should not get here!
-        return '????'
+        if parent:
+            parent_iter = self.handle2iter.get(parent)
+        else:
+            parent_iter = None
+        row = self._get_row(data, handle)
+        self.handle2iter[handle] = self.append(parent_iter, row)
