@@ -6,6 +6,7 @@
 # Copyright (C) 2010       Benny Malengier
 # Copyright (C) 2010       Nick Hall
 # Copyright (C) 2012       Doug Blank <doug.blank@gmail.com>
+# Copyright (C) 2015-      Serge Noiraud
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -314,6 +315,14 @@ class ConfigureDialog(ManagedWindow):
         text.set_text(label)
         grid.attach(text, 1, index, 8, 1)
 
+    def add_button(self, grid, label, index, constant, extra_callback=None, config=None):
+        if not config:
+            config = self.__config
+        button = Gtk.Button(label=label)
+        button.connect('clicked', extra_callback)
+        grid.attach(button, 1, index, 1, 1)
+        return button
+
     def add_path_box(self, grid, label, index, entry, path, callback_label,
                      callback_sel, config=None):
         """ Add an entry to give in path and a select button to open a
@@ -491,7 +500,8 @@ class GrampsPreferences(ConfigureDialog):
             self.add_date_panel,
             self.add_researcher_panel,
             self.add_advanced_panel,
-            self.add_color_panel
+            self.add_color_panel,
+            self.add_symbols_panel
             )
         ConfigureDialog.__init__(self, uistate, dbstate, page_funcs,
                                  GrampsPreferences, config,
@@ -1536,3 +1546,145 @@ class GrampsPreferences(ConfigureDialog):
 
     def build_menu_names(self, obj):
         return (_('Preferences'), _('Preferences'))
+
+    def add_symbols_panel(self, configdialog):
+        self.grid = Gtk.Grid()
+        self.grid.set_border_width(12)
+        self.grid.set_column_spacing(6)
+        self.grid.set_row_spacing(6)
+
+        message = _('This tab gives you the possibility to use one font'
+                    ' which is able to show all genealogical symbols\n\n'
+                    'If you select the "use symbols" checkbox, '
+                    'Gramps will use the selected font if it exists.'
+                   )
+        self.add_text(self.grid, message,
+                0, line_wrap=True)
+        self.add_checkbox(self.grid,
+                _('Use symbols'),
+                1,
+                'utf8.in-use',
+                )
+        message = _('Be careful, if you click on the "Try to find" button, it can '
+                    'take a while before you can continue (10 minutes or more). '
+                    '\nIf you cancel the process, nothing will be changed.'
+                   )
+        self.add_text(self.grid, message,
+                2, line_wrap=True)
+        self.add_button(self.grid,
+                _('Try to find'),
+                3,
+                'utf8.in-use',
+                extra_callback=self.can_we_use_genealogical_fonts)
+        sel_font = config.get('utf8.selected-font')
+        available_fonts = config.get('utf8.available-fonts')
+        active_val = 0
+        self.all_avail_fonts = [x for x in enumerate(available_fonts)]
+        if len(available_fonts) > 0:
+            self.add_text(self.grid,
+                _('You already run the tools to select genealogy fonts.'
+                  '\nRun it again only if you added fonts on your system.'
+                 ),
+                4, line_wrap=True)
+            for val in available_fonts:
+                if sel_font == val:
+                    break
+                active_val += 1
+            self.add_combo(self.grid,
+                _('Choose font'), 
+                5, 'utf8.selected-font',
+                self.all_avail_fonts, callback=self.utf8_update_font, valueactive=True, setactive=active_val)
+
+        return _('Genealogical Symbols'), self.grid
+
+    def can_we_use_genealogical_fonts(self, obj):
+        try:
+            import fontconfig
+            from gramps.gen.utils.symbols import Symbols
+            from gramps.gui.utils import ProgressMeter
+        except:
+            from gramps.gui.dialog import WarningDialog
+            WarningDialog(_("Cannot look for genealogical fonts"),
+                          _("I am not able to select genealogical fonts. "
+                            "Please, install the module fontconfig for python 3."),
+                          parent=self.uistate.window)
+            return False
+        fonts = fontconfig.query()
+        all_fonts = {}
+        symbols = Symbols()
+        nb_symbols = symbols.get_how_many_symbols()
+        self.in_progress = True
+        self.progress = ProgressMeter(_('Checking available genealogical fonts'),
+                                       can_cancel=True,
+                                       cancel_callback=self.stop_looking_for_font, parent=self.uistate.window)
+        self.progress.set_pass(_('Looking for all fonts with genealogical symbols.'), nb_symbols*len(fonts))
+        for idx in range(0, len(fonts)):
+            if not self.in_progress:
+                return
+            for rand in range(symbols.SYMBOL_LESBIAN, symbols.SYMBOL_CREMATED+1):
+                string = symbols.get_symbol_for_html(rand)
+                value = symbols.get_symbol_for_string(rand)
+                font = fonts[idx]
+                fontname = font.family[0][1]
+                try:
+                    vals = all_fonts[fontname]
+                except:
+                    all_fonts[fontname] = []
+                if font.has_char(value):
+                    if value not in all_fonts[fontname]:
+                        all_fonts[fontname].append(value)
+                self.progress.step()
+            for rand in range(symbols.DEATH_SYMBOL_SKULL, symbols.DEATH_SYMBOL_DEAD):
+                string = symbols.get_death_symbol_for_html(rand)
+                value = symbols.get_death_symbol_for_string(string)
+                font = fonts[idx]
+                fontname = font.family[0][1]
+                try:
+                    vals = all_fonts[fontname]
+                except:
+                    all_fonts[fontname] = []
+                if font.has_char(value):
+                    if value not in all_fonts[fontname]:
+                        all_fonts[fontname].append(value)
+                self.progress.step()
+        self.progress.close()
+        nb1 = 0
+        available_fonts = []
+        for font in all_fonts.keys():
+            font_usage = all_fonts[font]
+            if not font_usage:
+               continue
+            if len(font_usage) == nb_symbols: # If the font use all symbols
+                available_fonts.append(font)
+                nb1 += 1
+        config.set('utf8.available-fonts',available_fonts)
+        sel_font = config.get('utf8.selected-font')
+        active_val = 0
+        for val in available_fonts:
+            if sel_font == val:
+                break
+            active_val += 1
+        if len(available_fonts) > 0:
+            self.all_avail_fonts = [x for x in enumerate(available_fonts)]
+            self.add_combo(self.grid,
+                _('Choose font'), 
+                5, 'utf8.selected-font',
+                self.all_avail_fonts, callback=self.utf8_update_font, valueactive=True, setactive=active_val)
+        else:
+            self.add_text(self.grid,
+                _('You have no font with genealogical symbols on your '
+                  'system. Gramps will not be able to use symbols.'
+                 ),
+                4, line_wrap=True)
+            config.set('utf8.selected-font',"")
+        self.grid.show_all()
+        self.in_progress = False
+
+    def utf8_update_font(self, obj, constant):
+        entry = obj.get_active()
+        config.set(constant, self.all_avail_fonts[entry][1])
+
+    def stop_looking_for_font(self, *args, **kwargs):
+        self.progress.close()
+        self.in_progress = False
+
