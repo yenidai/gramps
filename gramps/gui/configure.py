@@ -68,6 +68,7 @@ from .plug import PluginWindows
 from gramps.gen.errors import WindowActiveError
 from .spell import HAVE_GTKSPELL
 _ = glocale.translation.gettext
+from gramps.gen.utils.symbols import Symbols
 
 #-------------------------------------------------------------------------
 #
@@ -1558,6 +1559,11 @@ class GrampsPreferences(ConfigureDialog):
                     'If you select the "use symbols" checkbox, '
                     'Gramps will use the selected font if it exists.'
                    )
+        message += '\n'
+        message += _('This can be useful if you want to add phonetic in '
+                    'a note to show how to pronounce a name or if you mix'
+                    ' multiple languages like greek and russian.'
+                   )
         self.add_text(self.grid, message,
                 0, line_wrap=True)
         self.add_checkbox(self.grid,
@@ -1582,7 +1588,7 @@ class GrampsPreferences(ConfigureDialog):
         self.all_avail_fonts = [x for x in enumerate(available_fonts)]
         if len(available_fonts) > 0:
             self.add_text(self.grid,
-                _('You already run the tools to select genealogy fonts.'
+                _('You already run the tools to search genealogy fonts.'
                   '\nRun it again only if you added fonts on your system.'
                  ),
                 4, line_wrap=True)
@@ -1594,13 +1600,32 @@ class GrampsPreferences(ConfigureDialog):
                 _('Choose font'), 
                 5, 'utf8.selected-font',
                 self.all_avail_fonts, callback=self.utf8_update_font, valueactive=True, setactive=active_val)
+            symbols = Symbols()
+            all_sbls = symbols.get_death_symbols()
+            all_symbols = []
+            for symbol in all_sbls:
+                all_symbols.append(symbol[2] + " " + symbol[0])
+            self.all_death_symbols = [x for x in enumerate(all_symbols)]
+            val = config.get('utf8.death-symbol')
+            active_val = symbols.get_death_symbol_for_string(val) + " " + symbols.get_death_symbol_name(val)
+            pos = 0
+            for nr, item in enumerate(self.all_death_symbols):
+                if item[-1] == active_val:
+                    pos = nr
+                    break
+            combo = self.add_combo(self.grid,
+                _('Select death symbol'),
+                6, 'utf8.death-symbol',
+                self.all_death_symbols, callback=self.utf8_update_death_symbol, valueactive=True, setactive='')
+            combo.set_active(pos)
+            if config.get('utf8.selected-font') != "":
+                self.utf8_show_example()
 
         return _('Genealogical Symbols'), self.grid
 
     def can_we_use_genealogical_fonts(self, obj):
         try:
             import fontconfig
-            from gramps.gen.utils.symbols import Symbols
             from gramps.gui.utils import ProgressMeter
         except:
             from gramps.gui.dialog import WarningDialog
@@ -1683,8 +1708,57 @@ class GrampsPreferences(ConfigureDialog):
     def utf8_update_font(self, obj, constant):
         entry = obj.get_active()
         config.set(constant, self.all_avail_fonts[entry][1])
+        self.utf8_show_example()
+
+    def utf8_show_example(self):
+        from gi.repository import Pango
+        font = config.get('utf8.selected-font')
+        symbols = Symbols()
+        my_characters = _("What you will see") + " :\n"
+        my_characters += "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz\n"
+        my_characters += "àäâçùéèiïîêëiÉÀÈïÏËÄœŒÅåØøìòô ...\n"
+        my_characters += "Μια φράση στα ελληνικά  "     # greek
+        my_characters += "Фраза на русском  "           # russian
+        my_characters += "在中国句子  "                 # chinese
+        my_characters += "日本語フレーズ  "             # japanese
+        my_characters += "وهناك عبارة باللغة العربية  " # arabic
+        my_characters += "განაჩენი ქართული  "           # hindi
+        my_characters += "ɚɝʤʧɧħɨʄʛɠɕ  ..."             # IPA (International Phonetic Alphabet)
+        my_characters += "\n"
+        my_characters += symbols.get_symbol_for_string(Symbols.SYMBOL_LESBIAN) + " "
+        my_characters += symbols.get_symbol_for_string(Symbols.SYMBOL_MALE_HOMOSEXUAL) + " "
+        my_characters += symbols.get_symbol_for_string(Symbols.SYMBOL_HETEROSEXUAL) + " "
+        my_characters += symbols.get_symbol_for_string(Symbols.SYMBOL_TRANSGENDER_HERMAPHRODITE) + " "
+        my_characters += symbols.get_symbol_for_string(Symbols.SYMBOL_TRANSGENDER) + " "
+        my_characters += symbols.get_symbol_for_string(Symbols.SYMBOL_ASEXUAL_SEXLESS) + " "
+        my_characters += symbols.get_symbol_for_string(Symbols.SYMBOL_MARRIAGE) + " "
+        my_characters += symbols.get_symbol_for_string(Symbols.SYMBOL_DIVORCE) + " "
+        my_characters += symbols.get_symbol_for_string(Symbols.SYMBOL_UNMARRIED_PARTNERSHIP) + " "
+        my_characters += symbols.get_symbol_for_string(Symbols.SYMBOL_BURIED) + " "
+        my_characters += symbols.get_symbol_for_string(Symbols.SYMBOL_CREMATED) + " "
+        my_characters += symbols.get_death_symbol_for_string(config.get('utf8.death-symbol')) + " "
+
+        try:
+            self.grid.remove_row(7)
+        except:
+            pass
+        text = Gtk.Label()
+        text.set_line_wrap(True)
+        font_description = Pango.font_description_from_string(font)
+        text.modify_font(font_description)
+        text.set_halign(Gtk.Align.START)
+        text.set_text(my_characters)
+        self.grid.attach(text, 1, 7, 8, 1)
+        self.grid.show_all()
 
     def stop_looking_for_font(self, *args, **kwargs):
         self.progress.close()
         self.in_progress = False
+
+    def utf8_update_death_symbol(self, obj, constant):
+        entry = obj.get_active()
+        symbols = Symbols()
+        all_sbls = symbols.get_death_symbols()
+        config.set(constant, all_sbls[entry][1])
+        self.utf8_show_example()
 

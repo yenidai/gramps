@@ -127,6 +127,17 @@ class Symbols():
         """
         return self.death_symbols
 
+    def get_death_symbol_name(self, value):
+        """
+        Return the name of the symbol.
+        The value correspond to the selected string for html which is saved
+        in the config section for interface.death-symbol
+        """
+        for element in self.death_symbols:
+            if element[1] == value:
+                return element[0]
+        return ""
+
     def get_death_symbol_for_html(self, symbol):
         """ return the html string like '&#9898;'. Should be used only here for test. """
         return self.death_symbols[symbol][1]
