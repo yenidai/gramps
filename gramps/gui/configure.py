@@ -1712,20 +1712,33 @@ class GrampsPreferences(ConfigureDialog):
 
     def utf8_show_example(self):
         from gi.repository import Pango
+        from gramps.gen.utils.grampslocale import _LOCALE_NAMES as X
+        try:
+            self.grid.remove_row(8)
+            self.grid.remove_row(7)
+        except:
+            pass
         font = config.get('utf8.selected-font')
         symbols = Symbols()
         my_characters = _("What you will see") + " :\n"
-        my_characters += "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz\n"
+        my_characters += "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz "
         my_characters += "àäâçùéèiïîêëiÉÀÈïÏËÄœŒÅåØøìòô ...\n"
-        my_characters += "Μια φράση στα ελληνικά  "     # greek
-        my_characters += "Фраза на русском  "           # russian
-        my_characters += "在中国句子  "                 # chinese
-        my_characters += "日本語フレーズ  "             # japanese
-        my_characters += "وهناك عبارة باللغة العربية  " # arabic
-        my_characters += "განაჩენი ქართული  "           # hindi
-        my_characters += "ɚɝʤʧɧħɨʄʛɠɕ  ..."             # IPA (International Phonetic Alphabet)
-        my_characters += "\n"
-        my_characters += symbols.get_symbol_for_string(Symbols.SYMBOL_LESBIAN) + " "
+        for k,v in sorted(X.items()):
+            lang = Pango.Language.from_string(k)
+            my_characters += v[2] + ":\t" + lang.get_sample_string() + "\n"
+
+        scrollw = Gtk.ScrolledWindow()
+        text = Gtk.Label()
+        text.set_line_wrap(True)
+        font_description = Pango.font_description_from_string(font)
+        text.modify_font(font_description)
+        text.set_halign(Gtk.Align.START)
+        text.set_text(my_characters)
+        scrollw.add(text)
+        scrollw.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+        self.grid.attach(scrollw, 1, 7, 8, 1)
+
+        my_characters = symbols.get_symbol_for_string(Symbols.SYMBOL_LESBIAN) + " "
         my_characters += symbols.get_symbol_for_string(Symbols.SYMBOL_MALE_HOMOSEXUAL) + " "
         my_characters += symbols.get_symbol_for_string(Symbols.SYMBOL_HETEROSEXUAL) + " "
         my_characters += symbols.get_symbol_for_string(Symbols.SYMBOL_TRANSGENDER_HERMAPHRODITE) + " "
@@ -1737,18 +1750,13 @@ class GrampsPreferences(ConfigureDialog):
         my_characters += symbols.get_symbol_for_string(Symbols.SYMBOL_BURIED) + " "
         my_characters += symbols.get_symbol_for_string(Symbols.SYMBOL_CREMATED) + " "
         my_characters += symbols.get_death_symbol_for_string(config.get('utf8.death-symbol')) + " "
-
-        try:
-            self.grid.remove_row(7)
-        except:
-            pass
         text = Gtk.Label()
         text.set_line_wrap(True)
         font_description = Pango.font_description_from_string(font)
         text.modify_font(font_description)
         text.set_halign(Gtk.Align.START)
         text.set_text(my_characters)
-        self.grid.attach(text, 1, 7, 8, 1)
+        self.grid.attach(text, 1, 8, 8, 1)
         self.grid.show_all()
 
     def stop_looking_for_font(self, *args, **kwargs):
