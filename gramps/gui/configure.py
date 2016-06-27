@@ -1732,6 +1732,7 @@ class GrampsPreferences(ConfigureDialog):
         text.set_line_wrap(True)
         font_description = Pango.font_description_from_string(font)
         text.modify_font(font_description)
+        self.uistate.viewmanager.change_font(font)
         text.set_halign(Gtk.Align.START)
         text.set_text(my_characters)
         scrollw.add(text)
