@@ -1614,7 +1614,7 @@ class GrampsPreferences(ConfigureDialog):
                     pos = nr
                     break
             combo = self.add_combo(self.grid,
-                _('Select death symbol'),
+                _('Select default death symbol'),
                 6, 'utf8.death-symbol',
                 self.all_death_symbols, callback=self.utf8_update_death_symbol, valueactive=True, setactive='')
             combo.set_active(pos)
@@ -1646,7 +1646,7 @@ class GrampsPreferences(ConfigureDialog):
         for idx in range(0, len(fonts)):
             if not self.in_progress:
                 return
-            for rand in range(symbols.SYMBOL_LESBIAN, symbols.SYMBOL_CREMATED+1):
+            for rand in range(symbols.SYMBOL_MALE, symbols.SYMBOL_EXTINCT+1):
                 string = symbols.get_symbol_for_html(rand)
                 value = symbols.get_symbol_for_string(rand)
                 font = fonts[idx]
@@ -1738,17 +1738,26 @@ class GrampsPreferences(ConfigureDialog):
         scrollw.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
         self.grid.attach(scrollw, 1, 7, 8, 1)
 
+        my_characters = symbols.get_symbol_for_string(Symbols.SYMBOL_MALE) + " "
+        my_characters = symbols.get_symbol_for_string(Symbols.SYMBOL_FEMALE) + " "
         my_characters = symbols.get_symbol_for_string(Symbols.SYMBOL_LESBIAN) + " "
         my_characters += symbols.get_symbol_for_string(Symbols.SYMBOL_MALE_HOMOSEXUAL) + " "
         my_characters += symbols.get_symbol_for_string(Symbols.SYMBOL_HETEROSEXUAL) + " "
-        my_characters += symbols.get_symbol_for_string(Symbols.SYMBOL_TRANSGENDER_HERMAPHRODITE) + " "
+        my_characters += symbols.get_symbol_for_string(Symbols.SYMBOL_HERMAPHRODITE) + " "
         my_characters += symbols.get_symbol_for_string(Symbols.SYMBOL_TRANSGENDER) + " "
         my_characters += symbols.get_symbol_for_string(Symbols.SYMBOL_ASEXUAL_SEXLESS) + " "
+        my_characters += symbols.get_symbol_for_string(Symbols.SYMBOL_NEUTER) + " "
+        my_characters += symbols.get_symbol_for_string(Symbols.SYMBOL_ILLEGITIM) + " "
+        my_characters += symbols.get_symbol_for_string(Symbols.SYMBOL_BIRTH) + " "
+        my_characters += symbols.get_symbol_for_string(Symbols.SYMBOL_BAPTISATION) + " "
+        my_characters += symbols.get_symbol_for_string(Symbols.SYMBOL_ENGAGED) + " "
         my_characters += symbols.get_symbol_for_string(Symbols.SYMBOL_MARRIAGE) + " "
         my_characters += symbols.get_symbol_for_string(Symbols.SYMBOL_DIVORCE) + " "
         my_characters += symbols.get_symbol_for_string(Symbols.SYMBOL_UNMARRIED_PARTNERSHIP) + " "
         my_characters += symbols.get_symbol_for_string(Symbols.SYMBOL_BURIED) + " "
         my_characters += symbols.get_symbol_for_string(Symbols.SYMBOL_CREMATED) + " "
+        my_characters += symbols.get_symbol_for_string(Symbols.SYMBOL_KILLED_IN_ACTION) + " "
+        my_characters += symbols.get_symbol_for_string(Symbols.SYMBOL_EXTINCT) + " "
         my_characters += symbols.get_death_symbol_for_string(config.get('utf8.death-symbol')) + " "
         text = Gtk.Label()
         text.set_line_wrap(True)
