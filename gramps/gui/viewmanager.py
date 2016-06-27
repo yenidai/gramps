@@ -865,9 +865,11 @@ class ViewManager(CLIManager):
     def change_font(self, font):
         """
         Change the default application font.
+        Only in the case we use symbols.
         """
-        css_font = CSS_FONT % font
-        self.provider.load_from_data(css_font.encode('UTF-8'))
+        if config.get('utf8.in-use'):
+            css_font = CSS_FONT % font
+            self.provider.load_from_data(css_font.encode('UTF-8'))
 
     def tip_of_day_activate(self, obj):
         """

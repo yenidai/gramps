@@ -1570,6 +1570,7 @@ class GrampsPreferences(ConfigureDialog):
                 _('Use symbols'),
                 1,
                 'utf8.in-use',
+                extra_callback=self.activate_change_font
                 )
         message = _('Be careful, if you click on the "Try to find" button, it can '
                     'take a while before you can continue (10 minutes or more). '
@@ -1710,6 +1711,10 @@ class GrampsPreferences(ConfigureDialog):
         config.set(constant, self.all_avail_fonts[entry][1])
         self.utf8_show_example()
 
+    def activate_change_font(self, obj=None):
+        font = config.get('utf8.selected-font')
+        self.uistate.viewmanager.change_font(font)
+
     def utf8_show_example(self):
         from gi.repository import Pango
         from gramps.gen.utils.grampslocale import _LOCALE_NAMES as X
@@ -1732,7 +1737,7 @@ class GrampsPreferences(ConfigureDialog):
         text.set_line_wrap(True)
         font_description = Pango.font_description_from_string(font)
         text.modify_font(font_description)
-        self.uistate.viewmanager.change_font(font)
+        self.activate_change_font()
         text.set_halign(Gtk.Align.START)
         text.set_text(my_characters)
         scrollw.add(text)
