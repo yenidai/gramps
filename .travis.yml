@@ -27,12 +27,11 @@ addons:
     - python3-nose
     - python3-mock
     - python-pyicu
-    - python-coverage
-    - python-pip
+    - python3-coverage
 
 before_install:
 # - pip install --upgrade pip
- - pip install --upgrade setuptools wheel nose coverage codecov
+# - pip install --upgrade setuptools wheel nose coverage codecov
 
 install:
 # - travis_retry pip install --upgrade pillow
