@@ -27,6 +27,7 @@ addons:
     - python3-nose
     - python3-mock
     - python-pyicu
+    - python-coverage
 
 before_install:
 # - pip install --upgrade pip
