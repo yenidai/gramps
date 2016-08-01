@@ -27,7 +27,6 @@ addons:
     - python3-nose
     - python3-mock
     - python-pyicu
-    - python3-coverage
 
 before_install:
 # - pip install --upgrade pip
@@ -36,6 +35,9 @@ before_install:
 install:
 # - travis_retry pip install --upgrade pillow
 # - travis_retry pip install pyicu==1.8
+  - wget https://pypi.python.org/packages/53/fe/9e0fbdbca15c2c1253379c3a694f4315a420555e7874445b06edeaeacaea/coverage-4.2.tar.gz
+  - tar -xzvf coverage-4.2.tar.gz
+  - pushd coverage-4.2 && python setup.py install && popd
 
  # - cd $TRAVIS_BUILD_DIR
  # $TRAVIS_BUILD_DIR is set to the location of the cloned repository:
