@@ -5,7 +5,10 @@ language: python
 python:
  - 3.2
 sudo: false
-cache: pip
+# Remove pip; it apparently http://gramps.1791082.n4.nabble.com/Why-is-Travis-CI-unable-to-import-coverage-and-pyicu-tp4676124p4676125.html
+# "Currently, all of the items installed with pip in .travis.yml are not used,
+# because nosetests3 uses the built-in Python3 which has access to the system installed packages (gtk, cairo, etc)."
+# cache: pip
 addons:
   apt:
     packages:
@@ -25,12 +28,12 @@ addons:
     - python3-mock
 
 before_install:
- - pip install --upgrade pip
- - pip install --upgrade setuptools wheel nose coverage codecov
+# - pip install --upgrade pip
+# - pip install --upgrade setuptools wheel nose coverage codecov
 
 install:
- - travis_retry pip install --upgrade pillow
- - travis_retry pip install pyicu==1.8
+# - travis_retry pip install --upgrade pillow
+# - travis_retry pip install pyicu==1.8
 
  # - cd $TRAVIS_BUILD_DIR
  # $TRAVIS_BUILD_DIR is set to the location of the cloned repository:
