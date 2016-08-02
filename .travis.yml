@@ -57,7 +57,7 @@ script:
  - which python
  - which nosetests3
  - which coverage
- - PYTHONPATH=meta:/home/travis/virtualenv/python3.3.5/lib/python3.3/site-packages GRAMPS_RESOURCES=. nosetests3 --nologcapture --with-coverage --cover-package=gramps --exclude=TestcaseGenerator --exclude=vcard --exclude=merge_ref_test  --exclude=user_test gramps
+ - PYTHONPATH=meta:/home/travis/virtualenv/python3.3.5/lib/python3.3/site-packages GRAMPS_RESOURCES=. /home/travis/virtualenv/python3.3.5/bin/nosetests3 --nologcapture --with-coverage --cover-package=gramps --exclude=TestcaseGenerator --exclude=vcard --exclude=merge_ref_test  --exclude=user_test gramps
  - if git --no-pager grep --color -n --full-name '[ 	]$' -- \*.py; then
      echo "ERROR - Trailing whitespace found in source file(s)";
      exit 1;
