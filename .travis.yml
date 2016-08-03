@@ -63,7 +63,8 @@ before_script:
 script:
  # --exclude=TestUser because of older version of mock
  #                    without configure_mock
- - export PYTHONHOME=/usr/lib/python3/dist-packages
+ - echo $PYTHONHOME
+ - export PYTHONHOME=/usr/lib/python3/dist-packages:/usr/lib
  - PYTHONPATH=meta:/usr/lib/python3/dist-packages:/home/travis/virtualenv/python3.3.5/lib/python3.3/site-packages GRAMPS_RESOURCES=. nosetests --nologcapture --with-coverage --cover-package=gramps --exclude=TestcaseGenerator --exclude=vcard --exclude=merge_ref_test  --exclude=user_test gramps
  - if git --no-pager grep --color -n --full-name '[ 	]$' -- \*.py; then
      echo "ERROR - Trailing whitespace found in source file(s)";
