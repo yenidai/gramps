@@ -50,18 +50,21 @@ before_script:
 #    - sudo Xvfb :99 -ac &
 #    - export DISPLAY=:99
  - mkdir -p ~/.gramps/grampsdb/
-
-script:
- # --exclude=TestUser because of older version of mock
- #                    without configure_mock
  - which python
  - which nosetests3
+ - which nosetests
  - which coverage
  - ls /home/travis/virtualenv/python3.3.5/bin
  - ls /usr/lib/python3/dist-packages
  - ls /home/travis/virtualenv/python3.3.5/lib/python3.3/site-packages
  - ls /home/travis/build
- - PYTHONPATH=meta:/usr/lib/python3/dist-packages:/home/travis/virtualenv/python3.3.5/lib/python3.3/site-packages GRAMPS_RESOURCES=. nosetests3 --nologcapture --with-coverage --cover-package=gramps --exclude=TestcaseGenerator --exclude=vcard --exclude=merge_ref_test  --exclude=user_test gramps
+ - ls /usr/bin
+
+script:
+ # --exclude=TestUser because of older version of mock
+ #                    without configure_mock
+ - PYTHONHOME=/usr/lib/python3/dist-packages
+ - PYTHONPATH=meta:/usr/lib/python3/dist-packages:/home/travis/virtualenv/python3.3.5/lib/python3.3/site-packages GRAMPS_RESOURCES=. nosetests --nologcapture --with-coverage --cover-package=gramps --exclude=TestcaseGenerator --exclude=vcard --exclude=merge_ref_test  --exclude=user_test gramps
  - if git --no-pager grep --color -n --full-name '[ 	]$' -- \*.py; then
      echo "ERROR - Trailing whitespace found in source file(s)";
      exit 1;
