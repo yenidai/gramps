@@ -4,6 +4,8 @@
 language: python
 python:
  - 3.3
+virtualenv:
+ system_site_packages: true
 sudo: false
 # Remove pip; it apparently http://gramps.1791082.n4.nabble.com/Why-is-Travis-CI-unable-to-import-coverage-and-pyicu-tp4676124p4676125.html
 # "Currently, all of the items installed with pip in .travis.yml are not used,
