@@ -63,9 +63,9 @@ before_script:
 script:
  # --exclude=TestUser because of older version of mock
  #                    without configure_mock
-# - PYTHONPATH=meta GRAMPS_RESOURCES=. nosetests3 --nologcapture  --exclude=TestcaseGenerator --exclude=vcard --exclude=merge_ref_test  --exclude=user_test constfunc_test.py
+ - PYTHONPATH=meta GRAMPS_RESOURCES=. nosetests --nologcapture  --exclude=TestcaseGenerator --exclude=vcard --exclude=merge_ref_test  --exclude=user_test constfunc_test.py
 # This uses system components and the apt-get installed packages
- - PYTHONPATH=meta:/usr/lib/python3/dist-packages:/home/travis/virtualenv/python3.3.5/lib/python3.3/site-packages GRAMPS_RESOURCES=. nosetests3 --nologcapture --exclude=TestcaseGenerator --exclude=vcard --exclude=merge_ref_test  --exclude=user_test gramps
+# - PYTHONPATH=meta:/usr/lib/python3/dist-packages:/home/travis/virtualenv/python3.3.5/lib/python3.3/site-packages GRAMPS_RESOURCES=. nosetests3 --nologcapture --exclude=TestcaseGenerator --exclude=vcard --exclude=merge_ref_test  --exclude=user_test gramps
 # This uses system components and the apt-get installed packages, but fails because it uses Python 3.2 and coverage needs Python 3.4
 # - PYTHONPATH=meta:/usr/lib/python3/dist-packages:/home/travis/virtualenv/python3.3.5/lib/python3.3/site-packages GRAMPS_RESOURCES=. nosetests3 --nologcapture --with-coverage --cover-package=gramps --exclude=TestcaseGenerator --exclude=vcard --exclude=merge_ref_test  --exclude=user_test gramps
 # This is an attempt to use the vuirtual environment nosetests, python, coverage and python standard packages with the apt-get installed packages. 
