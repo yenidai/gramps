@@ -55,7 +55,7 @@ before_script:
  - which nosetests
  - which coverage
  - ls /home/travis/virtualenv/python3.3.5/bin
- - ls /usr/lib/python3/dist-packages
+ - ls -R /usr/lib/python3
  - ls /home/travis/virtualenv/python3.3.5/lib/python3.3/site-packages
  - ls /home/travis/build
  - ls /usr/bin
@@ -65,13 +65,13 @@ script:
  #                    without configure_mock
  - export VIRTPYTHONHOME=`python -c "import sys;print(':'.join(sys.path[1:]))"`
  - echo $VIRTPYTHONHOME
- - export SYSPYTHONHOME=`/usr/bin/python -c "import sys;print(':'.join(sys.path[1:]))"`
+ - export SYSPYTHONHOME=`/usr/bin/python3 -c "import sys;print(':'.join(sys.path[1:]))"`
  - echo $SYSPYTHONHOME
  - export PYTHONHOME=$VIRTPYTHONHOME:$SYSPYTHONHOME
  - echo $PYTHONHOME
 # - export PYTHONHOME=/home/travis/virtualenv/python3.3.5/lib:/opt/python/3.3.5/lib/python3.3
 # - python -c "import sys;print(sys.path)" 
- - PYTHONPATH=meta:/home/travis/virtualenv/python3.3.5/lib/python3.3/site-packages GRAMPS_RESOURCES=. nosetests --nologcapture --with-coverage --cover-package=gramps --exclude=TestcaseGenerator --exclude=vcard --exclude=merge_ref_test  --exclude=user_test gramps
+# - PYTHONPATH=meta:/home/travis/virtualenv/python3.3.5/lib/python3.3/site-packages GRAMPS_RESOURCES=. nosetests --nologcapture --with-coverage --cover-package=gramps --exclude=TestcaseGenerator --exclude=vcard --exclude=merge_ref_test  --exclude=user_test gramps
  - if git --no-pager grep --color -n --full-name '[ 	]$' -- \*.py; then
      echo "ERROR - Trailing whitespace found in source file(s)";
      exit 1;
