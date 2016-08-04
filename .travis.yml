@@ -63,6 +63,7 @@ before_script:
 script:
  # --exclude=TestUser because of older version of mock
  #                    without configure_mock
+ - /usr/bin/python3 -c "import sys;print(sys.path[1:])"
  - export VIRTPYTHONHOME=`python -c "import sys;print(':'.join(sys.path[1:]))"`
  - echo $VIRTPYTHONHOME
  - export SYSPYTHONHOME=/usr/lib/python3/dist-packages:/usr/lib/python3/dist-packages/bsddb3:/usr/lib/python3/dist-packages/bsddb3/_pybsddb.cpython-32mu.so:/usr/lib/python3/dist-packages/gi:/usr/lib/python3/dist-packages/gi/_gi_cairo.cpython-32mu.so:/usr/lib/python3/dist-packages/cairo:/usr/lib/python3/dist-packages/cairo/_cairo.cpython-32mu.so
