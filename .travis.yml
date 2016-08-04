@@ -63,16 +63,16 @@ before_script:
 script:
  # --exclude=TestUser because of older version of mock
  #                    without configure_mock
- - PYTHONPATH=meta GRAMPS_RESOURCES=. nosetests3 --nologcapture  --exclude=TestcaseGenerator --exclude=vcard --exclude=merge_ref_test  --exclude=user_test constfunct_test.py
+# - PYTHONPATH=meta GRAMPS_RESOURCES=. nosetests3 --nologcapture  --exclude=TestcaseGenerator --exclude=vcard --exclude=merge_ref_test  --exclude=user_test constfunc_test.py
 # This uses system components and the apt-get installed packages
  - PYTHONPATH=meta:/usr/lib/python3/dist-packages:/home/travis/virtualenv/python3.3.5/lib/python3.3/site-packages GRAMPS_RESOURCES=. nosetests3 --nologcapture --exclude=TestcaseGenerator --exclude=vcard --exclude=merge_ref_test  --exclude=user_test gramps
 # This uses system components and the apt-get installed packages, but fails because it uses Python 3.2 and coverage needs Python 3.4
- - PYTHONPATH=meta:/usr/lib/python3/dist-packages:/home/travis/virtualenv/python3.3.5/lib/python3.3/site-packages GRAMPS_RESOURCES=. nosetests3 --nologcapture --with-coverage --cover-package=gramps --exclude=TestcaseGenerator --exclude=vcard --exclude=merge_ref_test  --exclude=user_test gramps
+# - PYTHONPATH=meta:/usr/lib/python3/dist-packages:/home/travis/virtualenv/python3.3.5/lib/python3.3/site-packages GRAMPS_RESOURCES=. nosetests3 --nologcapture --with-coverage --cover-package=gramps --exclude=TestcaseGenerator --exclude=vcard --exclude=merge_ref_test  --exclude=user_test gramps
 # This is an attempt to use the vuirtual environment nosetests, python, coverage and python standard packages with the apt-get installed packages. 
  - /usr/bin/python3 -c "import sys;print(sys.path[1:])"
  - export VIRTPYTHONHOME=`python -c "import sys;print(':'.join(sys.path[1:]))"`
  - echo $VIRTPYTHONHOME
- - export SYSPYTHONHOME=/usr/lib/python3/dist-packages:/usr/lib/python3/dist-packages/bsddb3:/usr/lib/python3/dist-packages/bsddb3/_pybsddb.cpython-32mu.so:/usr/lib/python3/dist-packages/gi:/usr/lib/python3/dist-packages/gi/_gi_cairo.cpython-32mu.so:/usr/lib/python3/dist-packages/cairo:/usr/lib/python3/dist-packages/cairo/_cairo.cpython-32mu.so
+ - export SYSPYTHONHOME=/usr/lib/python3/dist-packages:/home/travis/virtualenv/python3.3.5/lib/python3.3/site-packages:/usr/lib/python3.2:/usr/lib/python3.2/plat-linux2:/usr/lib/python3.2/lib-dynload:/usr/local/lib/python3.2/dist-packages
  - echo $SYSPYTHONHOME
  - export PYTHONHOME=$VIRTPYTHONHOME:$SYSPYTHONHOME
  - echo $PYTHONHOME
