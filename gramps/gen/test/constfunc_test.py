@@ -22,6 +22,7 @@
 """ Unittest for constfunc.py """
 
 import unittest
+import sys
 from .. import constfunc
 
 from os import environ as env
@@ -31,8 +32,17 @@ class Test_has_display(unittest.TestCase):
         self.has = constfunc.has_display()
         self.display_nonempty = ('DISPLAY' in env) and bool(env['DISPLAY'])
 
-    @unittest.skipUnless(constfunc.lin(), "Written for Linux only...")
+#    @unittest.skipUnless(constfunc.lin(), "Written for Linux only...")
     def test_consistent_with_DISPLAY_env(self):
+        print("builtin_module_names")
+        print(sys.builtin_module_names)
+        print("exec_prefix")
+        print(sys.exec_prefix)
+        print("executable")
+        print(sys.executable)
+        print("path")
+        print(sys.path)
+        assert False
         assert self.has == self.display_nonempty, \
                 "has_display(): {}, $DISPLAY: {}".format(
                         self.has, env['DISPLAY'] if ('DISPLAY' in env) \
