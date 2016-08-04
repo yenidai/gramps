@@ -40,6 +40,10 @@ class Test_has_display(unittest.TestCase):
         print(sys.exec_prefix)
         print("executable")
         print(sys.executable)
+        print("version")
+        print(sys.version)
+        print("version_info")
+        print(sys.version_info)
         print("path")
         print(sys.path)
         assert False
