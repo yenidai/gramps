@@ -97,7 +97,12 @@ script:
    fi
 
 after_success:
+ - pwd
+ - cd
+ - pwd
+ - find /home/travis/build/gramps-project/gramps -type f -name '*.gcno' ls
  - which codecov
- - which codecov-2.0.5
- - codecov-2.0.5
+ - codecov
+ - find /home/travis/build/gramps-project/gramps -type f -name '*.xml' ls
+
 
