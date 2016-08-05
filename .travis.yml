@@ -5,7 +5,7 @@ sudo: required
 dist: trusty
 language: python
 python:
- - 3.3
+ - 3.3 # This is irrelevant, because the virtualenv is not used at all
 # Remove pip; it apparently http://gramps.1791082.n4.nabble.com/Why-is-Travis-CI-unable-to-import-coverage-and-pyicu-tp4676124p4676125.html
 # "Currently, all of the items installed with pip in .travis.yml are not used,
 # because nosetests3 uses the built-in Python3 which has access to the system installed packages (gtk, cairo, etc)."
@@ -45,12 +45,15 @@ install:
  # - cd $TRAVIS_BUILD_DIR
  # $TRAVIS_BUILD_DIR is set to the location of the cloned repository:
  # for example: /home/travis/build/gramps-project/gramps
+# Download Sean Ross-Ross's Pure Python module containing a framework to manipulate and analyze python ast’s and bytecode
  - git clone -b master https://github.com/srossross/meta
+# Build Gramps package
  - python setup.py build
 
 before_script:
 #    - sudo Xvfb :99 -ac &
 #    - export DISPLAY=:99
+# Create the Gramps database directory.
  - mkdir -p ~/.gramps/grampsdb/
  - which python
  - which nosetests3
@@ -94,5 +97,6 @@ script:
    fi
 
 after_success:
- - codecov
+# - codecov
+ - bash <(curl -s https://codecov.io/bash)
 
