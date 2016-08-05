@@ -79,7 +79,7 @@ script:
 # - export PYTHONHOME=/home/travis/build/gramps-project/gramps/gramps:/home/travis/build/gramps-project/gramps:/usr/bin:/home/travis/build/gramps-project/gramps/meta:/usr/lib/python3/dist-packages:/home/travis/virtualenv/python3.3.5/lib/python3.3/site-packages:/usr/lib/python3.2:/usr/lib/python3.2/plat-linux2:/usr/lib/python3.2/lib-dynload:/usr/local/lib/python3.2/dist-packages
 # - export PYTHONHOME=/home/travis/virtualenv/python3.3.5/lib:/opt/python/3.3.5/lib/python3.3
 # - python -c "import sys;print(sys.path)" 
- - PYTHONPATH=meta:/usr/lib/python3/dist-packages:/home/travis/virtualenv/python3.3.5/lib/python3.3/site-packages GRAMPS_RESOURCES=. nosetests3 --nologcapture --with-coverage --cover-package=gramps --exclude=TestcaseGenerator --exclude=vcard --exclude=merge_ref_test  --exclude=user_test gramps
+ - PYTHONPATH=meta:/home/travis/virtualenv/python3.3.6/lib/python3.3/site-packages GRAMPS_RESOURCES=. nosetests3 --nologcapture --with-coverage --cover-package=gramps --exclude=TestcaseGenerator --exclude=vcard --exclude=merge_ref_test  --exclude=user_test gramps
  - if git --no-pager grep --color -n --full-name '[ 	]$' -- \*.py; then
      echo "ERROR - Trailing whitespace found in source file(s)";
      exit 1;
