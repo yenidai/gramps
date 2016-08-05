@@ -97,5 +97,7 @@ script:
    fi
 
 after_success:
- - codecov
+ - which codecov
+ - which codecov-2.0.5
+ - codecov-2.0.5
 
