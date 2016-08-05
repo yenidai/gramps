@@ -1,10 +1,11 @@
 # After changing this file, check it on:
 #   http://lint.travis-ci.org/
 
+sudo: required
+dist: trusty
 language: python
 python:
  - 3.3
-sudo: false
 # Remove pip; it apparently http://gramps.1791082.n4.nabble.com/Why-is-Travis-CI-unable-to-import-coverage-and-pyicu-tp4676124p4676125.html
 # "Currently, all of the items installed with pip in .travis.yml are not used,
 # because nosetests3 uses the built-in Python3 which has access to the system installed packages (gtk, cairo, etc)."
@@ -27,7 +28,6 @@ addons:
     - python3-nose
     - python3-mock
     - python-pyicu
-    - python3-nose
 
 before_install:
 # - pip install --upgrade pip
@@ -63,20 +63,20 @@ before_script:
 script:
  # --exclude=TestUser because of older version of mock
  #                    without configure_mock
- - PYTHONPATH=meta GRAMPS_RESOURCES=. nosetests --nologcapture  --exclude=TestcaseGenerator --exclude=vcard --exclude=merge_ref_test  --exclude=user_test constfunc_test.py
+# - PYTHONPATH=meta GRAMPS_RESOURCES=. nosetests --nologcapture  --exclude=TestcaseGenerator --exclude=vcard --exclude=merge_ref_test  --exclude=user_test constfunc_test.py
 # This uses system components and the apt-get installed packages
 # - PYTHONPATH=meta:/usr/lib/python3/dist-packages:/home/travis/virtualenv/python3.3.5/lib/python3.3/site-packages GRAMPS_RESOURCES=. nosetests3 --nologcapture --exclude=TestcaseGenerator --exclude=vcard --exclude=merge_ref_test  --exclude=user_test gramps
 # This uses system components and the apt-get installed packages, but fails because it uses Python 3.2 and coverage needs Python 3.4
 # - PYTHONPATH=meta:/usr/lib/python3/dist-packages:/home/travis/virtualenv/python3.3.5/lib/python3.3/site-packages GRAMPS_RESOURCES=. nosetests3 --nologcapture --with-coverage --cover-package=gramps --exclude=TestcaseGenerator --exclude=vcard --exclude=merge_ref_test  --exclude=user_test gramps
 # This is an attempt to use the vuirtual environment nosetests, python, coverage and python standard packages with the apt-get installed packages. 
  - /usr/bin/python3 -c "import sys;print(sys.path[1:])"
- - export VIRTPYTHONHOME=`python -c "import sys;print(':'.join(sys.path[1:]))"`
- - echo $VIRTPYTHONHOME
- - export SYSPYTHONHOME=/usr/lib/python3/dist-packages:/home/travis/virtualenv/python3.3.5/lib/python3.3/site-packages:/usr/lib/python3.2:/usr/lib/python3.2/plat-linux2:/usr/lib/python3.2/lib-dynload:/usr/local/lib/python3.2/dist-packages
- - echo $SYSPYTHONHOME
- - export PYTHONHOME=$VIRTPYTHONHOME:$SYSPYTHONHOME
- - echo $PYTHONHOME
- - export PYTHONHOME=/home/travis/build/gramps-project/gramps/gramps:/home/travis/build/gramps-project/gramps:/usr/bin:/home/travis/build/gramps-project/gramps/meta:/usr/lib/python3/dist-packages:/home/travis/virtualenv/python3.3.5/lib/python3.3/site-packages:/usr/lib/python3.2:/usr/lib/python3.2/plat-linux2:/usr/lib/python3.2/lib-dynload:/usr/local/lib/python3.2/dist-packages
+# - export VIRTPYTHONHOME=`python -c "import sys;print(':'.join(sys.path[1:]))"`
+# - echo $VIRTPYTHONHOME
+# - export SYSPYTHONHOME=/usr/lib/python3/dist-packages:/home/travis/virtualenv/python3.3.5/lib/python3.3/site-packages:/usr/lib/python3.2:/usr/lib/python3.2/plat-linux2:/usr/lib/python3.2/lib-dynload:/usr/local/lib/python3.2/dist-packages
+# - echo $SYSPYTHONHOME
+# - export PYTHONHOME=$VIRTPYTHONHOME:$SYSPYTHONHOME
+# - echo $PYTHONHOME
+# - export PYTHONHOME=/home/travis/build/gramps-project/gramps/gramps:/home/travis/build/gramps-project/gramps:/usr/bin:/home/travis/build/gramps-project/gramps/meta:/usr/lib/python3/dist-packages:/home/travis/virtualenv/python3.3.5/lib/python3.3/site-packages:/usr/lib/python3.2:/usr/lib/python3.2/plat-linux2:/usr/lib/python3.2/lib-dynload:/usr/local/lib/python3.2/dist-packages
 # - export PYTHONHOME=/home/travis/virtualenv/python3.3.5/lib:/opt/python/3.3.5/lib/python3.3
 # - python -c "import sys;print(sys.path)" 
  - PYTHONPATH=meta:/usr/lib/python3/dist-packages:/home/travis/virtualenv/python3.3.5/lib/python3.3/site-packages GRAMPS_RESOURCES=. nosetests --nologcapture --with-coverage --cover-package=gramps --exclude=TestcaseGenerator --exclude=vcard --exclude=merge_ref_test  --exclude=user_test gramps
