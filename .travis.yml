@@ -6,10 +6,6 @@ dist: trusty
 language: python
 python:
  - 3.3 # This is irrelevant, because the virtualenv is not used at all
-# Remove pip; it apparently http://gramps.1791082.n4.nabble.com/Why-is-Travis-CI-unable-to-import-coverage-and-pyicu-tp4676124p4676125.html
-# "Currently, all of the items installed with pip in .travis.yml are not used,
-# because nosetests3 uses the built-in Python3 which has access to the system installed packages (gtk, cairo, etc)."
-# cache: pip
 addons:
   apt:
     packages:
@@ -32,7 +28,7 @@ addons:
 
 before_install:
 # - pip install --upgrade pip
- - pip install --upgrade codecov
+# - pip install --upgrade codecov
 
 install:
 # - travis_retry pip install --upgrade pillow
@@ -97,13 +93,17 @@ script:
    fi
 
 after_success:
- - pwd
+# - pwd
+# apt-get installs python3-coverage, but codecov only invokes coverage, so make a link
  - sudo ln /usr/bin/python3-coverage /usr/bin/coverage
  - find /home/travis/build/gramps-project/gramps -name '*coverage*' -print
- - find /home/travis/build/gramps-project/gramps -name '*.html' -print
- - which codecov
- - PATH=/usr/bin:$PATH which coverage
- - codecov
+# - find /home/travis/build/gramps-project/gramps -name '*.html' -print
+# - which codecov
+# - PATH=/usr/bin:$PATH which coverage
+# - codecov
+# We have to use the bash script because the apt-get coverage does not install codecov.
+# If we used pip to install codecov, it would run inside the virtualenv, and that doesn't work.
+# Change the path to ensure that codecov picks up coverage from /usr/bin, rather than from /home/travis/virtualenv/python3.3.6/bin/
  - PATH=/usr/bin:$PATH bash <(curl -s https://codecov.io/bash)
  - find /home/travis/build/gramps-project/gramps -type f -name '*.xml' -print
 
