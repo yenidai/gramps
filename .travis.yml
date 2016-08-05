@@ -98,6 +98,7 @@ script:
 
 after_success:
  - pwd
+ - ln /usr/bin/python3-coverage /usr/bin/coverage
  - find /home/travis/build/gramps-project/gramps -name '*.gcno' -print
  - find /home/travis/build/gramps-project/gramps -name '*.html' -print
  - which codecov
