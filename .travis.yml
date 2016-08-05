@@ -32,7 +32,7 @@ addons:
 
 before_install:
 # - pip install --upgrade pip
-# - pip install --upgrade codecov
+ - pip install --upgrade codecov
 
 install:
 # - travis_retry pip install --upgrade pillow
@@ -97,6 +97,5 @@ script:
    fi
 
 after_success:
-# - codecov
- - bash <(curl -s https://codecov.io/bash)
+ - codecov
 
