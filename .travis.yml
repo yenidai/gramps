@@ -99,12 +99,12 @@ script:
 after_success:
  - pwd
  - sudo ln /usr/bin/python3-coverage /usr/bin/coverage
- - find /home/travis/build/gramps-project/gramps -name '*.gcno' -print
+ - find /home/travis/build/gramps-project/gramps -name '*coverage*' -print
  - find /home/travis/build/gramps-project/gramps -name '*.html' -print
  - which codecov
- - which coverage
+ - PATH=/usr/bin:$PATH which coverage
  - codecov
- - bash <(curl -s https://codecov.io/bash)
+ - PATH=/usr/bin:$PATH bash <(curl -s https://codecov.io/bash)
  - find /home/travis/build/gramps-project/gramps -type f -name '*.xml' -print
 
 
