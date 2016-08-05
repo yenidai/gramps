@@ -55,7 +55,6 @@ before_script:
  - which python
  - which nosetests3
  - which nosetests
- - which coverage
  - ls /home/travis/virtualenv/python3.3.6/bin
  - ls -R /usr/lib/python3
  - ls /home/travis/virtualenv/python3.3.6/lib/python3.3/site-packages
