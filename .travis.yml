@@ -65,7 +65,7 @@ before_script:
 # set PYTHONPATH so the directly installed modules (meta) is picked up from /home/travis/build/gramps-project/gramps/meta
  - export PYTHONPATH=meta
 # set module exclusions. --exclude=TestUser because of older version of mock without configure_mock
- - export EXCLUDE=--exclude=TestcaseGenerator --exclude=vcard --exclude=merge_ref_test --exclude=user_test --exclude=constfunc_test.py
+ - export EXCLUDE="--exclude=TestcaseGenerator --exclude=vcard --exclude=merge_ref_test --exclude=user_test --exclude=constfunc_test.py"
 # set GRAMPS_RESOURCES something to do with database?
  - export GRAMPS_RESOURCES=.
 
