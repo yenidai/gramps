@@ -6,6 +6,10 @@ dist: trusty
 language: python
 python:
  - 3.3 # This is irrelevant, because the virtualenv is not used at all
+# Remove pip; it apparently http://gramps.1791082.n4.nabble.com/Why-is-Travis-CI-unable-to-import-coverage-and-pyicu-tp4676124p4676125.html
+# "Currently, all of the items installed with pip in .travis.yml are not used,
+# because nosetests3 uses the built-in Python3 which has access to the system installed packages (gtk, cairo, etc)."
+# cache: pip
 addons:
   apt:
     packages:
@@ -28,9 +32,12 @@ addons:
 
 before_install:
 # - pip install --upgrade pip
-# - pip install --upgrade codecov
+ - pip install --upgrade codecov
 
 install:
+ - pwd
+ - ls `pwd`
+ - ls `pwd`/..
 # - travis_retry pip install --upgrade pillow
 # - travis_retry pip install pyicu==1.8
 # Install coverage into /home/travis/virtualenv/python3.3.6/bin and /home/travis/virtualenv/python3.3.6/lib/python3.3/site-packages
@@ -43,8 +50,12 @@ install:
  # for example: /home/travis/build/gramps-project/gramps
 # Download Sean Ross-Ross's Pure Python module containing a framework to manipulate and analyze python ast’s and bytecode
  - git clone -b master https://github.com/srossross/meta
+ - ls `pwd`
+ - ls `pwd`/..
 # Build Gramps package
  - python setup.py build
+ - ls `pwd`
+ - ls `pwd`/..
 
 before_script:
 #    - sudo Xvfb :99 -ac &
@@ -75,6 +86,8 @@ script:
 # This uses system components and the apt-get installed packages, but fails because it uses Python 3.2 and coverage needs Python 3.4
 # - PYTHONPATH=meta:/usr/lib/python3/dist-packages:/home/travis/virtualenv/python3.3.5/lib/python3.3/site-packages GRAMPS_RESOURCES=. nosetests3 --nologcapture --with-coverage --cover-package=gramps --exclude=TestcaseGenerator --exclude=vcard --exclude=merge_ref_test  --exclude=user_test gramps
 # This is an attempt to use the vuirtual environment nosetests, python, coverage and python standard packages with the apt-get installed packages. 
+ - ls `pwd`
+ - ls `pwd`/..
  - /usr/bin/python3 -c "import sys;print(sys.path[1:])"
 # - export VIRTPYTHONHOME=`python -c "import sys;print(':'.join(sys.path[1:]))"`
 # - echo $VIRTPYTHONHOME
@@ -93,18 +106,12 @@ script:
    fi
 
 after_success:
-# - pwd
-# apt-get installs python3-coverage, but codecov only invokes coverage, so make a link
+ - pwd
  - sudo ln /usr/bin/python3-coverage /usr/bin/coverage
  - find /home/travis/build/gramps-project/gramps -name '*coverage*' -print
-# - find /home/travis/build/gramps-project/gramps -name '*.html' -print
-# - which codecov
-# - PATH=/usr/bin:$PATH which coverage
-# - codecov
-# We have to use the bash script because the apt-get coverage does not install codecov.
-# If we used pip to install codecov, it would run inside the virtualenv, and that doesn't work.
-# Change the path to ensure that codecov picks up coverage from /usr/bin, rather than from /home/travis/virtualenv/python3.3.6/bin/
+ - find /home/travis/build/gramps-project/gramps -name '*.html' -print
+ - which codecov
+ - PATH=/usr/bin:$PATH which coverage
+ - codecov
  - PATH=/usr/bin:$PATH bash <(curl -s https://codecov.io/bash)
  - find /home/travis/build/gramps-project/gramps -type f -name '*.xml' -print
-
-
