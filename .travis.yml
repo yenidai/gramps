@@ -60,6 +60,11 @@ install:
 # The working directory is set to /home/travis/build/gramps-project/gramps
 # by the automatic git checkout.
 
+# Check that everything compiles before running setup.py so we don't check the
+# build directory, and before cloning 'meta' because
+# "meta/meta/bytecodetools/print_code.py" hasn't been fixed for python3
+ - python3 -m compileall *
+
 # Download Sean Ross-Ross's Pure Python module containing a framework to
 # manipulate and analyze python ast’s and bytecode. This is loaded to 
 # /home/travis/build/gramps-project/gramps/meta
@@ -83,7 +88,6 @@ before_script:
    --exclude=merge_ref_test --exclude=user_test --exclude=constfunc_test.py"
 # set GRAMPS_RESOURCES for locale, data,image and documentation
  - export GRAMPS_RESOURCES=.
- - python3 -m compileall *
 
 script:
 # Ignore the virtualenv entirely. Use nosetests3, python3 (3.4.0) and coverage
@@ -103,6 +107,8 @@ script:
 # gramps, because there is some test code in that directory.
 
 # give an error for any trailing whitespace
+ - pwd
+ - ls `pwd`
  - if git --no-pager grep --color -n --full-name '[ 	]$' -- \*.py; then
      echo "ERROR - Trailing whitespace found in source file(s)";
      exit 1;
