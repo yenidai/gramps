@@ -167,8 +167,9 @@ class PatchNames(tool.BatchTool, ManagedWindow):
         self.cb = callback
         self.handle_to_action = {}
 
-        self.progress = ProgressMeter(
-            _('Extracting Information from Names'), '')
+        self.progress = ProgressMeter( # parent-OK
+            _('Extracting Information from Names'), '',
+            parent=self.uistate.window)
         self.progress.set_pass(_('Analyzing names'),
                                self.db.get_number_of_people())
 
@@ -360,7 +361,7 @@ class PatchNames(tool.BatchTool, ManagedWindow):
         else:
             self.progress.close()
             self.close()
-            OkDialog(_('No modifications made'),
+            OkDialog(_('No modifications made'), # parent-OK
                      _("No titles, nicknames or prefixes were found"),
                      parent=self.uistate.window)
 

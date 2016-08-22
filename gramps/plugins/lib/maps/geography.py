@@ -133,7 +133,7 @@ class GeoGraphyView(OsmGps, NavigationView):
         NavigationView.__init__(self, title, pdata, dbstate, uistate,
                                 bm_type, nav_group)
 
-        OsmGps.__init__(self)
+        OsmGps.__init__(self, uistate)
         self.dbstate = dbstate
         self.dbstate.connect('database-changed', self.change_db)
         self.default_text = "Enter location here!"
@@ -198,7 +198,7 @@ class GeoGraphyView(OsmGps, NavigationView):
             self.bookmarks.add(mlist[0])
         else:
             from gramps.gui.dialog import WarningDialog
-            WarningDialog(
+            WarningDialog( # parent-OK
                 _("Could Not Set a Bookmark"),
                 _("A bookmark could not be set because "
                   "no one was selected."),
@@ -214,7 +214,7 @@ class GeoGraphyView(OsmGps, NavigationView):
             self.bookmarks.redraw()
         else:
             from gramps.gui.dialog import WarningDialog
-            WarningDialog(
+            WarningDialog( # parent-OK
                 _("Could Not Set a Bookmark"),
                 _("A bookmark could not be set because "
                   "no one was selected."),
@@ -227,8 +227,9 @@ class GeoGraphyView(OsmGps, NavigationView):
         NavigationView.change_page(self)
         self.uistate.clear_filter_results()
         self.end_selection = None
-        self.osm.grab_focus()
-        self.set_crosshair(config.get("geography.show_cross"))
+        if self.osm:
+            self.osm.grab_focus()
+            self.set_crosshair(config.get("geography.show_cross"))
 
     def do_size_request(self, requisition):
         """
@@ -271,8 +272,9 @@ class GeoGraphyView(OsmGps, NavigationView):
         if self.active:
             self.bookmarks.redraw()
         self.build_tree()
-        self.osm.grab_focus()
-        self.set_crosshair(config.get("geography.show_cross"))
+        if self.osm:
+            self.osm.grab_focus()
+            self.set_crosshair(config.get("geography.show_cross"))
 
     def can_configure(self):
         """
@@ -610,6 +612,8 @@ class GeoGraphyView(OsmGps, NavigationView):
         """
         Create all markers for the specified person.
         """
+        if self.marker_layer is None:
+            return
         self.remove_all_markers()
         self.remove_all_gps()
         self.remove_all_tracks()
@@ -845,7 +849,7 @@ class GeoGraphyView(OsmGps, NavigationView):
         """
         if Gtk.MAJOR_VERSION == 3 and Gtk.MINOR_VERSION < 11:
             from gramps.gui.dialog import WarningDialog
-            WarningDialog(
+            WarningDialog( # parent-OK
                 _("You can't use the print functionality"),
                 _("Your Gtk version is too old."),
                 parent=self.uistate.window)
@@ -1031,7 +1035,7 @@ class GeoGraphyView(OsmGps, NavigationView):
                         gids = gids + ", " + plce.gramps_id
             if nb_places > 1:
                 from gramps.gui.dialog import WarningDialog
-                WarningDialog(
+                WarningDialog( # parent-OK
                       _('You have at least two places with the same title.'),
                       _("The title of the places is:\n%(title)s\n"
                         "The following places are similar: %(gid)s\n"

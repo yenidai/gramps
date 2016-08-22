@@ -269,6 +269,8 @@ TOKEN__ADPN = 130
 TOKEN__FSFTID = 131
 TOKEN__PHOTO = 132
 TOKEN__LINK = 133
+TOKEN__PRIM = 134
+TOKEN__JUST = 135
 
 TOKENS = {
     "HEAD"         : TOKEN_HEAD,    "MEDI"         : TOKEN_MEDI,
@@ -362,7 +364,7 @@ TOKENS = {
     "_DETAIL"        : TOKEN_IGNORE,"_PREF"         : TOKEN__PRIMARY,
     "_LKD"           : TOKEN__LKD,  "_DATE"         : TOKEN_IGNORE,
     "_SCBK"          : TOKEN_IGNORE,"_TYPE"         : TOKEN_TYPE,
-    "_PRIM"          : TOKEN_IGNORE,"_SSHOW"        : TOKEN_IGNORE,
+    "_PRIM"          : TOKEN__PRIM, "_SSHOW"        : TOKEN_IGNORE,
     "_PAREN"         : TOKEN_IGNORE,"BLOB"          : TOKEN_BLOB,
     "CONL"           : TOKEN_CONL,  "RESN"          : TOKEN_RESN,
     "_MEDI"          : TOKEN_MEDI,  "_MASTER"       : TOKEN_IGNORE,
@@ -376,6 +378,7 @@ TOKENS = {
     "_MAR"           : TOKEN__MAR,  "_MARN"         : TOKEN__MARN,
     "_ADPN"          : TOKEN__ADPN, "_FSFTID"       : TOKEN__FSFTID,
     "_LINK"          : TOKEN__LINK, "_PHOTO"        : TOKEN__PHOTO,
+    "_JUST"          : TOKEN__JUST,  # FTM Citation Quality Justification
 }
 
 ADOPT_NONE         = 0
@@ -510,7 +513,7 @@ PERSONALCONSTANTEVENTS = {
     EventType.DEGREE           : "_DEG",
     EventType.DIV_FILING       : "DIVF",
     EventType.EDUCATION        : "EDUC",
-    EventType.ELECTED          : "",
+    EventType.ELECTED          : "_ELEC",  # FTM custom tag
     EventType.EMIGRATION       : "EMIG",
     EventType.FIRST_COMMUN     : "FCOM",
     EventType.GRADUATION       : "GRAD",
@@ -562,7 +565,40 @@ LDS_STATUS = {
     "SUBMITTED": LdsOrd.STATUS_SUBMITTED,
     "UNCLEARED": LdsOrd.STATUS_UNCLEARED,
     }
-
+# -------------------------------------------------------------------------
+#
+# Custom event friendly names.  These are non-standard GEDCOM "NEW_TAG"
+# tags that start with an '_' i.e. "_DNA".  FTM has several of these, other
+# programs may have more.  If a tag with this format is encountered it is
+# checked in this table for a "friendly" name translation and thereafter is
+# displayed and exported as such.  If the tag is NOT in this table and not
+# otherwise handled by the code, the tag itself is used for display and
+# export.  For example "_XYZ" is not in the table and will be displayed as
+# "_XYZ" and exported as an EVEN.TYPE=_XYZ
+# As Custom entries, they do not appear in GRAMPS Events add choice unless
+# already imported via GEDCOM.
+#
+# -------------------------------------------------------------------------
+CUSTOMEVENTTAGS = {
+    "_CIRC"     : _("Circumcision"),
+    "_COML"     : _("Common Law Marriage"),
+    "_DEST"     : _("Destination"),
+    "_DNA"      : _("DNA"),
+    "_DCAUSE"   : _("Cause of Death"),
+    "_EMPLOY"   : _("Employment"),
+    "_EXCM"     : _("Excommunication"),
+    "_EYC"      : _("Eye Color"),
+    "_FUN"      : _("Funeral"),
+    "_HEIG"     : _("Height"),
+    "_INIT"     : _("Initiatory (LDS)"),
+    "_MILTID"   : _("Military ID"),
+    "_MISN"     : _("Mission (LDS)"),
+    "_NAMS"     : _("Namesake"),
+    "_ORDI"     : _("Ordinance"),
+    "_ORIG"     : _("Origin"),
+    "_SEPR"     : _("Separation"),         # Applies to Families
+    "_WEIG"     : _("Weight"),
+    }
 # table for skipping illegal control chars in GEDCOM import
 # Only 09, 0A, 0D are allowed.
 STRIP_DICT = dict.fromkeys(list(range(9))+list(range(11, 13))+list(range(14, 32)))
@@ -1605,7 +1641,7 @@ class CurrentState:
         self.note = None
         self.lds_ord = None
         self.msg = ""
-        self.primary = False        # _PRIM tag on an INDI.FAMC tag
+        self.primary = False        # _PRIMARY tag on an INDI.FAMC tag
         self.filename = ""
         self.title = ""
         self.addr = None
@@ -2315,15 +2351,18 @@ class GedcomParser(UpdateCallback):
             TOKEN_RNOTE  : self.__citation_note,
             TOKEN_TEXT   : self.__citation_data_text,
             TOKEN__LINK  : self.__citation_link,
+            TOKEN__JUST  : self.__citation__just,
             }
         self.func_list.append(self.citation_parse_tbl)
 
         self.media_parse_tbl = {
             TOKEN_FORM   : self.__media_ref_form,
+            TOKEN_MEDI   : self.__media_ref_medi,        # v5.5.1
             TOKEN_TITL   : self.__media_ref_titl,
             TOKEN_FILE   : self.__media_ref_file,
             TOKEN_NOTE   : self.__media_ref_note,
             TOKEN_RNOTE  : self.__media_ref_note,
+            TOKEN__PRIM  : self.__media_ref_prim,        # LFT etc.
             TOKEN_IGNORE : self.__ignore,
         }
         self.func_list.append(self.media_parse_tbl)
@@ -2504,7 +2543,7 @@ class GedcomParser(UpdateCallback):
             TOKEN_NOTE   : self.__obje_note,
             TOKEN_RNOTE  : self.__obje_note,
             TOKEN_SOUR   : self.__obje_sour,
-            TOKEN_BLOB   : self.__obje_blob,
+            TOKEN_BLOB   : self.__ignore,       # v5.5.1 deprecated
             TOKEN_REFN   : self.__obje_refn,
             TOKEN_RIN    : self.__obje_rin,
             TOKEN_CHAN   : self.__obje_chan,
@@ -2779,7 +2818,7 @@ class GedcomParser(UpdateCallback):
             parent_window = self.user.uistate.window
         else:
             parent_window = None
-        self.user.info(message, "".join(self.errors),
+        self.user.info(message, "".join(self.errors), # parent-OK
                        parent=parent_window, monospaced=True)
 
     def __clean_up(self):
@@ -3061,6 +3100,34 @@ class GedcomParser(UpdateCallback):
 
         self.backoff = False
         return self.groups
+
+    def __chk_subordinate(self, level, state, token):
+        """
+        checks for a single subordinate line with specific token.  If any other
+        lines are present, they are not understood.
+
+        @param level: Current level in the file
+        @type level: int
+        @param state: The current state
+        @type state: CurrentState
+        @param token: The token to search for
+        @type token: int
+        """
+        skips = 0
+        got_line = None
+        while True:
+            line = self.__get_next_line()
+            if self.__level_is_finished(line, level):
+                if skips:
+                    # This improves formatting when there are long sequences of
+                    # skipped lines
+                    self.__add_msg("", None, None)
+                return got_line
+            if line.token == token:
+                got_line = line
+            else:
+                self.__add_msg(_("Line ignored as not understood"), line, state)
+                skips += 1
 
     def __undefined(self, line, state):
         """
@@ -3661,10 +3728,12 @@ class GedcomParser(UpdateCallback):
         @type state: CurrentState
         """
         # We can get here when a tag that is not valid in the indi_parse_tbl
-        # parse table is encountered. It is remotely possible that this is
-        # actally a DATE tag, in which case line.data will be a date object, so
-        # we need to convert it back to a string here.
-        event_ref = self.__build_event_pair(state, EventType.CUSTOM,
+        # parse table is encountered. The tag may be of the form "_XXX".  We
+        # try to convert to a friendly name, if fails use the tag itself as
+        # the TYPE in a custom event
+        cust_tag = CUSTOMEVENTTAGS.get(line.token_text, line.token_text)
+        cust_type = EventType((EventType.CUSTOM, cust_tag))
+        event_ref = self.__build_event_pair(state, cust_type,
                                             self.event_parse_tbl,
                                             str(line.data))
         state.person.add_event_ref(event_ref)
@@ -3794,39 +3863,12 @@ class GedcomParser(UpdateCallback):
 
     def __person_object(self, line, state):
         """
-
-        Embedded form
-
-        >   n OBJE @<XREF:OBJE>@ {1:1}
-
-        Linked form
-
-        >   n OBJE {1:1}
-        >   +1 FORM <MULTIMEDIA_FORMAT> {1:1}
-        >   +1 TITL <DESCRIPTIVE_TITLE> {0:1}
-        >   +1 FILE <MULTIMEDIA_FILE_REFERENCE> {1:1}
-        >   +1 <<NOTE_STRUCTURE>> {0:M}
-
         @param line: The current line in GedLine format
         @type line: GedLine
         @param state: The current state
         @type state: CurrentState
         """
-        if line.data and line.data[0] == '@':
-            # Reference to a named multimedia object defined elsewhere
-            gramps_id = self.oid_map[line.data]
-
-            handle = self.__find_media_handle(gramps_id)
-            ref = MediaRef()
-            ref.set_reference_handle(handle)
-            state.person.add_media_reference(ref)
-        else:
-            (form, filename, title, note) = self.__obje(state.level+1, state)
-            if filename == "":
-                self.__add_msg(_("Filename omitted"), line, state)
-            if form == "":
-                self.__add_msg(_("Form omitted"), line, state)
-            self.build_media(state.person, form, filename, title, note)
+        self.__obje(line, state, state.person)
 
     def __person_photo(self, line, state):
         """
@@ -4099,6 +4141,7 @@ class GedcomParser(UpdateCallback):
         addr.set_phone(line.data)
         state.person.add_address(addr)
         self.__skip_subordinate_levels(state.level+1, state)
+
 
     def __person_email(self, line, state):
         """
@@ -4739,7 +4782,7 @@ class GedcomParser(UpdateCallback):
 
     def __person_famc_primary(self, line, state):
         """
-        Parses the _PRIM tag on an INDI.FAMC tag. This value is stored in
+        Parses the _PRIMARY tag on an INDI.FAMC tag. This value is stored in
         the state record to be used later.
 
         @param line: The current line in GedLine format
@@ -5011,11 +5054,20 @@ class GedcomParser(UpdateCallback):
         @param state: The current state
         @type state: CurrentState
         """
+        # We can get here when a tag that is not valid in the family_func
+        # parse table is encountered. The tag may be of the form "_XXX".  We
+        # try to convert to a friendly name, if fails use the tag itself as
+        # the TYPE in a custom event
+        cust_tag = CUSTOMEVENTTAGS.get(line.token_text,line.token_text)
+        cust_type = EventType((EventType.CUSTOM, cust_tag))
         event = Event()
         event_ref = EventRef()
         event_ref.set_role(EventRoleType.FAMILY)
         event.set_gramps_id(self.emapper.find_next())
-        event.set_type(line.data)
+        event.set_type(cust_type)
+        # in case a description ever shows up
+        if line.data and line.data != 'Y':
+            event.set_description(line.data)
         self.dbase.add_event(event, self.trans)
 
         sub_state = CurrentState()
@@ -5152,21 +5204,7 @@ class GedcomParser(UpdateCallback):
         @param state: The current state
         @type state: CurrentState
         """
-        if line.data and line.data[0] == '@':
-            # Reference to a named multimedia object defined elsewhere
-            gramps_id = self.oid_map[line.data]
-
-            handle = self.__find_media_handle(gramps_id)
-            ref = MediaRef()
-            ref.set_reference_handle(handle)
-            state.family.add_media_reference(ref)
-        else:
-            (form, filename, title, note) = self.__obje(state.level + 1, state)
-            if filename == "":
-                self.__add_msg(_("Filename omitted"), line, state)
-            if form == "":
-                self.__add_msg(_("Form omitted"), line, state)
-            self.build_media(state.family, form, filename, title, note)
+        self.__obje(line, state, state.family)
 
     def __family_comm(self, line, state):
         """
@@ -5222,30 +5260,118 @@ class GedcomParser(UpdateCallback):
         attr.set_value(line.data)
         state.family.add_attribute(attr)
 
-    def __obje(self, level, state):
+    def __obje(self, line, state, pri_obj):
         """
+       Embedded form
+
+          n OBJE @<XREF:OBJE>@ {1:1}
+          +1 _PRIM <Y/N>       {0:1}                # Indicates primary photo
+
+        Linked form
+
           n  OBJE {1:1}
-          +1 FORM <MULTIMEDIA_FORMAT> {1:1}
+          +1 FORM <MULTIMEDIA_FORMAT> {1:1}         # v5.5 layout
           +1 TITL <DESCRIPTIVE_TITLE> {0:1}
-          +1 FILE <MULTIMEDIA_FILE_REFERENCE> {1:1}
+          +1 FILE <MULTIMEDIA_FILE_REFERENCE> {1:1} # v5.5.1 allows multiple
+            +2 FORM <MULTIMEDIA_FORMAT> {1:1}       # v5.5.1 layout
+              +3 MEDI <SOURCE_MEDIA_TYPE> {0:1}     # v5.5.1 layout
           +1 <<NOTE_STRUCTURE>> {0:M}
+          +1 _PRIM <Y/N>       {0:1}                # Indicates primary photo
 
         @param line: The current line in GedLine format
         @type line: GedLine
         @param state: The current state
         @type state: CurrentState
+        @param pri_obj: The Primary object to which this is attached
+        @type state: Person # or Family, or Source etc.
         """
+        if line.data and line.data[0] == '@':
+            # Reference to a named multimedia object defined elsewhere
+            gramps_id = self.oid_map[line.data]
+            handle = self.__find_media_handle(gramps_id)
+            # check to see if this is a primary photo
+            line = self.__chk_subordinate(state.level+1, state, TOKEN__PRIM)
+            if line and line.data == 'Y':
+                state.photo = handle
+            oref = MediaRef()
+            oref.set_reference_handle(handle)
+            pri_obj.add_media_reference(oref)
+            return
+        #
+        # The remainder of this code is similar in concept to __parse_obje
+        # except that it combines references to the same media file by
+        # comparing path names.  If they are the same, then only the first
+        # is kept.  This does mean that if there are different notes etc. on a
+        # later OBJE, they will be lost.
+        #
         sub_state = CurrentState()
         sub_state.form = ""
+        sub_state.attr = None
         sub_state.filename = ""
         sub_state.title = ""
         sub_state.note = ""
-        sub_state.level = level
+        sub_state.level = state.level + 1
+        sub_state.prim = ""
 
         self.__parse_level(sub_state, self.media_parse_tbl, self.__ignore)
         state.msg += sub_state.msg
-        return (sub_state.form, sub_state.filename, sub_state.title,
-                sub_state.note)
+        if sub_state.filename == "":
+            self.__add_msg(_("Filename omitted"), line, state)
+        # The following lines are commented out because Gramps is NOT a
+        # Gedcom validator!
+        # if sub_state.form == "":
+        #     self.__add_msg(_("Form omitted"), line, state)
+
+        # The following code that detects URL is an older v5.5 usage; the
+        # modern option is to use the EMAIL tag.
+        if isinstance(sub_state.form, str) and sub_state.form == "url":
+            url = Url()
+            url.set_path(sub_state.filename)
+            url.set_description(sub_state.title)
+            url.set_type(UrlType.WEB_HOME)
+            pri_obj.add_url(url)
+        else:
+            # to allow import of references to URLs (especially for import from
+            # geni.com), do not try to find the file if it is blatently a URL
+            res = urlparse(sub_state.filename)
+            if sub_state.filename != '' and \
+                    (res.scheme == '' or res.scheme == 'file'):
+                (valid, path) = self.__find_file(sub_state.filename,
+                                                 self.dir_path)
+                if not valid:
+                    self.__add_msg(_("Could not import %s") %
+                                   sub_state.filename, line, state)
+            else:
+                path = sub_state.filename
+            # Multiple references to the same media silently drops the later
+            # ones, even if title, notes etc.  are different
+            photo_handle = self.media_map.get(path)
+            if photo_handle is None:
+                photo = Media()
+                photo.set_path(path)
+                if sub_state.title:
+                    photo.set_description(sub_state.title)
+                else:
+                    photo.set_description(path)
+                full_path = os.path.abspath(path)
+                if os.path.isfile(full_path):
+                    photo.set_mime_type(get_type(full_path))
+                else:
+                    photo.set_mime_type(MIME_MAP.get(sub_state.form,
+                                                     'unknown'))
+                if sub_state.note:
+                    photo.add_note(sub_state.note)
+                if sub_state.attr:
+                    photo.attribute_list.append(sub_state.attr)
+                self.dbase.add_media(photo, self.trans)
+                self.media_map[path] = photo.handle
+            else:
+                photo = self.dbase.get_media_from_handle(photo_handle)
+            if sub_state.prim == "Y":
+                state.photo = photo.handle
+            oref = MediaRef()
+            oref.set_reference_handle(photo.handle)
+            pri_obj.add_media_reference(oref)
 
     def __media_ref_form(self, line, state):
         """
@@ -5256,7 +5382,22 @@ class GedcomParser(UpdateCallback):
         @param state: The current state
         @type state: CurrentState
         """
-        state.form = line.data
+        state.form = line.data.lower()
+
+    def __media_ref_medi(self, line, state):
+        """
+          +1 MEDI <SOURCE_MEDIA_TYPE> {0:1}   (Photo, Audio, Book, etc.)
+
+        @param line: The current line in GedLine format
+        @type line: GedLine
+        @param state: The current state
+        @type state: CurrentState
+        """
+        state.attr = Attribute()
+        mtype = MEDIA_MAP.get(line.data.lower(),
+                              (SourceMediaType.CUSTOM, line.data))
+        state.attr.set_type(_('Media-Type'))
+        state.attr.set_value(str(SourceMediaType(mtype)))
 
     def __media_ref_titl(self, line, state):
         """
@@ -5278,6 +5419,11 @@ class GedcomParser(UpdateCallback):
         @param state: The current state
         @type state: CurrentState
         """
+        if state.filename != "":
+            self.__add_msg(_("Multiple FILE in a single OBJE ignored"),
+                           line, state)
+            self.__skip_subordinate_levels(state.level+1, state)
+            return
         state.filename = line.data
 
     def __media_ref_note(self, line, state):
@@ -5322,6 +5468,19 @@ class GedcomParser(UpdateCallback):
 
                 self.dbase.commit_note(new_note, self.trans, new_note.change)
                 state.note = new_note.get_handle()
+
+    def __media_ref_prim(self, line, state):
+        """
+          +1 _PRIM <Y/N> {0:1}
+
+        Indicates that this OBJE is the primary photo.
+
+        @param line: The current line in GedLine format
+        @type line: GedLine
+        @param state: The current state
+        @type state: CurrentState
+        """
+        state.prim = line.data
 
     def __family_adopt(self, line, state):
         """
@@ -5380,21 +5539,7 @@ class GedcomParser(UpdateCallback):
         @param state: The current state
         @type state: CurrentState
         """
-        if line.data and line.data[0] == '@':
-            # Reference to a named multimedia object defined elsewhere
-            gramps_id = self.oid_map[line.data]
-
-            handle = self.__find_media_handle(gramps_id)
-            ref = MediaRef()
-            ref.set_reference_handle(handle)
-            state.event.add_media_reference(ref)
-        else:
-            (form, filename, title, note) = self.__obje(state.level + 1, state)
-            if filename == "":
-                self.__add_msg(_("Filename omitted"), line, state)
-            if form == "":
-                self.__add_msg(_("Form omitted"), line, state)
-            self.build_media(state.event, form, filename, title, note)
+        self.__obje(line, state, state.event)
 
     def __event_type(self, line, state):
         """
@@ -5513,22 +5658,7 @@ class GedcomParser(UpdateCallback):
         @param state: The current state
         @type state: CurrentState
         """
-        if line.data and line.data[0] == '@':
-            # Reference to a named multimedia object defined elsewhere
-            gramps_id = self.oid_map[line.data]
-
-            handle = self.__find_media_handle(gramps_id)
-            ref = MediaRef()
-            ref.set_reference_handle(handle)
-            state.place.add_media_reference(ref)
-        else:
-            # FIXME this should probably be level+1
-            (form, filename, title, note) = self.__obje(state.level, state)
-            if filename == "":
-                self.__add_msg(_("Filename omitted"), line, state)
-            if form == "":
-                self.__add_msg(_("Form omitted"), line, state)
-            self.build_media(state.place, form, filename, title, note)
+        self.__obje(line, state, state.place)
 
     def __event_place_sour(self, line, state):
         """
@@ -6188,6 +6318,19 @@ class GedcomParser(UpdateCallback):
         self.dbase.add_note(note, self.trans)
         state.citation.add_note(note.get_handle())
 
+    def __citation__just(self, line, state):
+        """
+        Not legal GEDCOM - added to support FTM, converts the _JUST tag to a
+        note.  This tag represents the Justification for a source.
+        """
+        note = Note()
+        note.set(line.data)
+        gramps_id = self.dbase.find_next_note_gramps_id()
+        note.set_gramps_id(gramps_id)
+        note.set_type(_("Citation Justification"))
+        self.dbase.add_note(note, self.trans)
+        state.citation.add_note(note.get_handle())
+
     def __citation_data_note(self, line, state):
         self.__parse_note(line, state.citation, state.level, state)
 
@@ -6200,21 +6343,7 @@ class GedcomParser(UpdateCallback):
         @param state: The current state
         @type state: CurrentState
         """
-        if line.data and line.data[0] == '@':
-            # Reference to a named multimedia object defined elsewhere
-            gramps_id = self.oid_map[line.data]
-
-            handle = self.__find_media_handle(gramps_id)
-            ref = MediaRef()
-            ref.set_reference_handle(handle)
-            state.citation.add_media_reference(ref)
-        else:
-            (form, filename, title, note) = self.__obje(state.level+1, state)
-            if filename == "":
-                self.__add_msg(_("Filename omitted"), line, state)
-            if form == "":
-                self.__add_msg(_("Form omitted"), line, state)
-            self.build_media(state.citation, form, filename, title, note)
+        self.__obje(line, state, state.citation)
 
     def __citation_refn(self, line, state):
         """
@@ -6353,21 +6482,7 @@ class GedcomParser(UpdateCallback):
         @param state: The current state
         @type state: CurrentState
         """
-        if line.data and line.data[0] == '@':
-            # Reference to a named multimedia object defined elsewhere
-            gramps_id = self.oid_map[line.data]
-
-            handle = self.__find_media_handle(gramps_id)
-            ref = MediaRef()
-            ref.set_reference_handle(handle)
-            state.source.add_media_reference(ref)
-        else:
-            (form, filename, title, note) = self.__obje(state.level+1, state)
-            if filename == "":
-                self.__add_msg(_("Filename omitted"), line, state)
-            if form == "":
-                self.__add_msg(_("Form omitted"), line, state)
-            self.build_media(state.source, form, filename, title, note)
+        self.__obje(line, state, state.source)
 
     def __source_chan(self, line, state):
         """
@@ -6594,6 +6709,8 @@ class GedcomParser(UpdateCallback):
 
         self.__parse_level(state, self.obje_func, self.__undefined)
 
+        if state.media.get_path() == "":
+            self.__add_msg(_("Filename omitted"), line, state)
         # Add the default reference if no source has found
         self.__add_default_source(media)
 
@@ -6612,9 +6729,7 @@ class GedcomParser(UpdateCallback):
         @param state: The current state
         @type state: CurrentState
         """
-        # TODO: FIX THIS!!!
-        state.media_form = line.data.strip()
-        self.__skip_subordinate_levels(state.level+1, state)
+        state.form = line.data.lower().strip()
 
     def __obje_file(self, line, state):
         """
@@ -6633,7 +6748,7 @@ class GedcomParser(UpdateCallback):
         res = urlparse(line.data)
         if line.data != '' and (res.scheme == '' or res.scheme == 'file'):
             (file_ok, filename) = self.__find_file(line.data, self.dir_path)
-            if state.media != "URL":
+            if state.form != "url":  # Might not work if FORM doesn't precede FILE
                 if not file_ok:
                     self.__add_msg(_("Could not import %s") % filename, line,
                                    state)
@@ -6699,16 +6814,6 @@ class GedcomParser(UpdateCallback):
         """
         state.media.add_citation(self.handle_source(line, state.level, state))
 
-    def __obje_blob(self, line, state):
-        """
-        @param line: The current line in GedLine format
-        @type line: GedLine
-        @param state: The current state
-        @type state: CurrentState
-        """
-        self.__add_msg(_("BLOB ignored"), line, state)
-        self.__skip_subordinate_levels(state.level+1, state)
-
     def __obje_refn(self, line, state):
         """
         @param line: The current line in GedLine format
@@ -6720,29 +6825,34 @@ class GedcomParser(UpdateCallback):
         attr.set_type(line.token_text)          # Atrribute : REFN
         attr.set_value(line.data)
         # if there is a subsequent TYPE, we add it as a note to the attribute
-        while True:
-            line = self.__get_next_line()
-            if self.__level_is_finished(line, state.level+1):
-                break
-            elif line.token == TOKEN_TYPE:
-                new_note = Note(line.data)
-                new_note.set_gramps_id(self.nid_map[""])
-                new_note.set_handle(create_id())
-                new_note.set_type('REFN-TYPE')
-                self.dbase.commit_note(new_note, self.trans, new_note.change)
-                attr.add_note(new_note.get_handle())
+        line = self.__chk_subordinate(state.level+1, state, TOKEN_TYPE)
+        if line:
+            new_note = Note(line.data)
+            new_note.set_gramps_id(self.nid_map[""])
+            new_note.set_handle(create_id())
+            new_note.set_type('REFN-TYPE')
+            self.dbase.commit_note(new_note, self.trans, new_note.change)
+            attr.add_note(new_note.get_handle())
         state.media.attribute_list.append(attr)
 
     def __obje_type(self, line, state):
         """
+        +1 FILE <MULTIMEDIA_FILE_REFN> {1:M}
+          +2 FORM <MULTIMEDIA_FORMAT> {1:1}
+            +3 TYPE <SOURCE_MEDIA_TYPE> {0:1}   # v5.5.1
+
+        Source_Media_type is one of (Photo, Audio, Book, etc.)
+
         @param line: The current line in GedLine format
         @type line: GedLine
         @param state: The current state
         @type state: CurrentState
         """
         attr = Attribute()
+        mtype = MEDIA_MAP.get(line.data.lower(),
+                              (SourceMediaType.CUSTOM, line.data))
         attr.set_type(_('Media-Type'))
-        attr.set_value(line.data)       # (Photo, Audio, Book, etc.)
+        attr.set_value(str(SourceMediaType(mtype)))
         state.media.attribute_list.append(attr)
 
     def __obje_rin(self, line, state):
@@ -7301,12 +7411,12 @@ class GedcomParser(UpdateCallback):
         # coding is now wrong.
         if self.genby.upper() == "LEGACY":
             fname = os.path.basename(self.filename)
-            WarningDialog(
-               _("Import of GEDCOM file %(filename)s with DEST=%(by)s, "
-                 "could cause errors in the resulting database!")
-                   % {'filename': fname, 'by': self.genby},
-               _("Look for nameless events.")
-               )
+            self.user.warn(
+                _("Import of GEDCOM file %(filename)s with DEST=%(by)s, "
+                  "could cause errors in the resulting database!") %
+                {'filename': fname, 'by': self.genby},
+                _("Look for nameless events.")
+                )
 
     def __header_char(self, line, state):
         """
@@ -7675,45 +7785,6 @@ class GedcomParser(UpdateCallback):
                 # too far in the future, this gives OverflowError.
                 pass
 
-    def build_media(self, obj, form, filename, title, note):
-        if isinstance(form, str) and form.lower() == "url":
-            url = Url()
-            url.set_path(filename)
-            url.set_description(title)
-            url.set_type(UrlType.WEB_HOME)
-            obj.add_url(url)
-        else:
-            # to allow import of references to URLs (especially for import from
-            # geni.com), do not try to find the files if they are blatently URLs
-            res = urlparse(filename)
-            if filename != '' and (res.scheme == '' or res.scheme == 'file'):
-                (valid, path) = self.__find_file(filename, self.dir_path)
-                if not valid:
-                    self.__add_msg(_("Could not import %s") % filename)
-            else:
-                path = filename
-            # Multiple references to the same media silently drops the later
-            # ones, even if title, notes etc.  are different
-            photo_handle = self.media_map.get(path)
-            if photo_handle is None:
-                photo = Media()
-                photo.set_path(path)
-                photo.set_description(title)
-                full_path = os.path.abspath(path)
-                if os.path.isfile(full_path):
-                    photo.set_mime_type(get_type(full_path))
-                else:
-                    photo.set_mime_type(MIME_MAP.get(form.lower(), 'unknown'))
-                if note:
-                    photo.add_note(note)
-                self.dbase.add_media(photo, self.trans)
-                self.media_map[path] = photo.handle
-            else:
-                photo = self.dbase.get_media_from_handle(photo_handle)
-            oref = MediaRef()
-            oref.set_reference_handle(photo.handle)
-            obj.add_media_reference(oref)
-
     def __build_event_pair(self, state, event_type, event_map, description):
         """
         n TYPE <EVENT_DESCRIPTOR> {0:1} p.*
@@ -7783,26 +7854,42 @@ class GedcomParser(UpdateCallback):
     def __do_photo(self, state):
         """
         Choose the primary photo from the list of media present for this
-        person.  Supports FTM _PHOTO feature.
+        person.  Supports FTM _PHOTO. and others _PRIM feature.
           0 INDI
           +1 _PHOTO @<XREF:OBJE>@ {1:1}
+
+          0 INDI
+            +1 OBJE @<XREF:OBJE>@
+              +2 _PRIM <Y/N>
+
+          0 INDI
+            +1 OBJE
+              +2 FILE primary_photo.jpg
+              +2 _PRIM <Y/N>
+
+        For the _PHOTO varient, state.photo contains the XREF ('@M1@').
+        For the _PRIM varients, state.photo contains the handle.
         Since Gramps currently uses the first media in the list as the
         primary, find the primary photo if already in the list, if present,
         move to beginning.  If not present, add at the beginning.
         This is run after all of the person processing is complete but before
         committing the person.
         """
-        if state.photo:
+        if state.photo.startswith('@'):
             gramps_id = self.oid_map[state.photo]
             handle = self.__find_media_handle(gramps_id)
-            for mref in state.person.media_list:
-                if handle == mref.ref:
-                    state.person.media_list.remove(mref)
-                    state.person.media_list.insert(0, mref)
-                    return
-            mref = MediaRef()
-            mref.set_reference_handle(handle)
-            state.person.media_list.insert(0, mref)
+        elif state.photo:
+            handle = state.photo
+        else:
+            return
+        for mref in state.person.media_list:
+            if handle == mref.ref:
+                state.person.media_list.remove(mref)
+                state.person.media_list.insert(0, mref)
+                return
+        mref = MediaRef()
+        mref.set_reference_handle(handle)
+        state.person.media_list.insert(0, mref)
 
     def __extract_temple(self, line):
         def get_code(code):

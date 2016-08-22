@@ -173,7 +173,17 @@ class User(metaclass=ABCMeta):
         """
 
     @abstractmethod
-    def info(self, msg1, infotext, parent=None, monospaced=False):
+    def notify_db_repair(self, error):
+        """
+        Notify the user their DB might need repair.
+
+        :param error: the error message
+        :type error: str
+        :returns: none
+        """
+
+    @abstractmethod
+    def info(self, msg1, infotext, parent=None, monospaced=False): # parent-OK
         """
         Displays information to the user
         """

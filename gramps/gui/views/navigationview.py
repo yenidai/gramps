@@ -46,10 +46,10 @@ from gi.repository import Gtk
 # Gramps
 #
 #----------------------------------------------------------------
-from .pageview import PageView
-from ..actiongroup import ActionGroup
 from gramps.gen.const import GRAMPS_LOCALE as glocale
 _ = glocale.translation.sgettext
+from .pageview import PageView
+from ..actiongroup import ActionGroup
 from gramps.gen.utils.db import navigation_label
 from gramps.gen.constfunc import mod_key
 
@@ -252,10 +252,11 @@ class NavigationView(PageView):
                                       _("%s has been bookmarked") % name)
         else:
             from ..dialog import WarningDialog
-            WarningDialog(
+            WarningDialog( # parent-OK
                 _("Could Not Set a Bookmark"),
                 _("A bookmark could not be set because "
-                  "no one was selected."))
+                  "no one was selected."),
+                parent=self.uistate.window)
 
     def edit_bookmarks(self, obj):
         """
@@ -333,7 +334,7 @@ class NavigationView(PageView):
             self.change_active(defperson.get_handle())
         else:
             from ..dialog import WarningDialog
-            WarningDialog(_("No Home Person"),
+            WarningDialog(_("No Home Person"), # parent-OK
                 _("You need to set a 'default person' to go to. "
                   "Select the People View, select the person you want as "
                   "'Home Person', then confirm your choice "

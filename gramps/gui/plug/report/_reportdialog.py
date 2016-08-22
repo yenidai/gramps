@@ -45,9 +45,8 @@ from gi.repository import Gtk
 # Gramps modules
 #
 #-------------------------------------------------------------------------
-from gramps.gen.const import GRAMPS_LOCALE as glocale, URL_MANUAL_PAGE
-_ = glocale.translation.gettext
 from gramps.gen.config import config
+from gramps.gen.const import URL_MANUAL_PAGE, DOCGEN_OPTIONS
 from gramps.gen.errors import (DatabaseError, FilterError, ReportError,
                                WindowActiveError)
 from ...utils import open_file_with_default_application
@@ -62,6 +61,8 @@ from ...managedwindow import ManagedWindow
 from ._stylecombobox import StyleComboBox
 from ._styleeditor import StyleListDisplay
 from ._fileentry import FileEntry
+from gramps.gen.const import GRAMPS_LOCALE as glocale
+_ = glocale.translation.gettext
 #-------------------------------------------------------------------------
 #
 # Private Constants
@@ -446,7 +447,8 @@ class ReportDialog(ManagedWindow):
         hid = self.style_name
         if hid[-4:] == ".xml":
             hid = hid[0:-4]
-        self.target_fileentry = FileEntry(hid, _("Save As"), parent=self.window)
+        self.target_fileentry = FileEntry(hid, _("Save As"), # parent-OK
+                                          parent=self.window)
         spath = self.get_default_directory()
         self.target_fileentry.set_filename(spath)
         # need any labels at top:
@@ -496,7 +498,7 @@ class ReportDialog(ManagedWindow):
 
                 # check whether the dir has rwx permissions
                 if not os.access(self.target_path, os.R_OK|os.W_OK|os.X_OK):
-                    ErrorDialog(_('Permission problem'),
+                    ErrorDialog(_('Permission problem'), # parent-OK
                                 _("You do not have permission to write "
                                   "under the directory %s\n\n"
                                   "Please select another directory or correct "
@@ -506,7 +508,7 @@ class ReportDialog(ManagedWindow):
 
             # selected path is an existing file and we need a file
             if os.path.isfile(self.target_path):
-                aaa = OptionDialog(_('File already exists'),
+                aaa = OptionDialog(_('File already exists'), # parent-OK
                                    _('You can choose to either overwrite the '
                                      'file, or change the selected filename.'),
                                    _('_Overwrite'), None,
@@ -523,7 +525,7 @@ class ReportDialog(ManagedWindow):
             parent_dir = os.path.dirname(os.path.normpath(self.target_path))
             if os.path.isdir(parent_dir):
                 if not os.access(parent_dir, os.W_OK):
-                    ErrorDialog(_('Permission problem'),
+                    ErrorDialog(_('Permission problem'), # parent-OK
                                 _("You do not have permission to create "
                                   "%s\n\n"
                                   "Please select another path or correct "
@@ -531,7 +533,7 @@ class ReportDialog(ManagedWindow):
                                 parent=self.window)
                     return None
             else:
-                ErrorDialog(_('No directory'),
+                ErrorDialog(_('No directory'), # parent-OK
                             _('There is no directory %s.\n\n'
                               'Please select another directory '
                               'or create it.') % parent_dir,
@@ -605,8 +607,8 @@ class ReportDialog(ManagedWindow):
 
         self.init_doc_options(self.doc_option_class)
         menu = self.doc_options.menu
-        for name in menu.get_option_names('Document Options'):
-            option = menu.get_option('Document Options', name)
+        for name in menu.get_option_names(DOCGEN_OPTIONS):
+            option = menu.get_option(DOCGEN_OPTIONS, name)
             # override option default with xml-saved value:
             if name in self.doc_options.options_dict:
                 option.set_value(self.doc_options.options_dict[name])
@@ -657,7 +659,7 @@ def report(dbstate, uistate, person, report_class, options_class,
     its arguments.
     """
     if require_active and not person:
-        ErrorDialog(
+        ErrorDialog( # parent-OK
             _('Active person has not been set'),
             _('You must select an active person for this report to work '
               'properly.'),
@@ -705,19 +707,21 @@ def report(dbstate, uistate, person, report_class, options_class,
                         dialog.open_with_app.get_property('sensitive') == True
                         and dialog.open_with_app.get_active()):
                     out_file = dialog.options.get_output()
-                    open_file_with_default_application(out_file)
+                    open_file_with_default_application(out_file, uistate)
 
             except FilterError as msg:
                 (msg1, msg2) = msg.messages()
-                ErrorDialog(msg1, msg2, parent=uistate.window)
+                ErrorDialog(msg1, msg2, parent=uistate.window) # parent-OK
             except IOError as msg:
-                ErrorDialog(_("Report could not be created"), str(msg),
+                ErrorDialog(_("Report could not be created"), # parent-OK
+                            str(msg),
                             parent=uistate.window)
             except ReportError as msg:
                 (msg1, msg2) = msg.messages()
-                ErrorDialog(msg1, msg2, parent=uistate.window)
+                ErrorDialog(msg1, msg2, parent=uistate.window) # parent-OK
             except DatabaseError as msg:
-                ErrorDialog(_("Report could not be created"), str(msg),
+                ErrorDialog(_("Report could not be created"), # parent-OK
+                            str(msg),
                             parent=uistate.window)
 #           The following except statement will catch all "NoneType" exceptions.
 #           This is useful for released code where the exception is most likely
@@ -727,7 +731,8 @@ def report(dbstate, uistate, person, report_class, options_class,
 #                if str(msg).startswith("'NoneType' object has no attribute"):
 #                    # "'NoneType' object has no attribute ..." usually means
 #                    # database corruption
-#                    RunDatabaseRepair(str(msg))
+#                    RunDatabaseRepair(str(msg),
+#                                      parent=self.window) # parent-OK
 #                else:
 #                    raise
                 raise

@@ -50,21 +50,21 @@ from gi.repository import Pango
 # Gramps
 #
 #----------------------------------------------------------------
+from gramps.gen.const import GRAMPS_LOCALE as glocale
+_ = glocale.translation.sgettext
 from .pageview import PageView
 from .navigationview import NavigationView
 from ..actiongroup import ActionGroup
 from ..columnorder import ColumnOrder
 from gramps.gen.config import config
-from gramps.gen.errors import WindowActiveError
+from gramps.gen.errors import WindowActiveError, FilterError
 from ..filters import SearchBar
 from ..widgets.menuitem import add_menuitem
 from gramps.gen.const import CUSTOM_FILTERS
 from gramps.gen.utils.debug import profile
 from gramps.gen.utils.string import data_recover_msg
-from ..dialog import QuestionDialog, QuestionDialog2
+from ..dialog import QuestionDialog, QuestionDialog2, ErrorDialog
 from ..editors import FilterEditor
-from gramps.gen.const import GRAMPS_LOCALE as glocale
-_ = glocale.translation.sgettext
 from ..ddtargets import DdTargets
 from ..plug.quick import create_quickreport_menu, create_web_connect_menu
 from ..utils import is_right_click
@@ -328,7 +328,12 @@ class ListView(NavigationView):
                 #run only the part that determines what to show
                 self.list.set_model(None)
                 self.model.set_search(filter_info)
-                self.model.rebuild_data()
+                try:
+                    self.model.rebuild_data()
+                except FilterError as msg:
+                    (msg1, msg2) = msg.messages()
+                    ErrorDialog(msg1, msg2, # parent-OK
+                                parent=self.uistate.window)
 
             cput1 = time.clock()
             self.build_columns()
@@ -445,10 +450,10 @@ class ListView(NavigationView):
             self.bookmarks.add(mlist[0])
         else:
             from ..dialog import WarningDialog
-            WarningDialog(
-                _("Could Not Set a Bookmark"),
-                _("A bookmark could not be set because "
-                  "nothing was selected."))
+            WarningDialog(_("Could Not Set a Bookmark"), # parent-OK
+                          _("A bookmark could not be set because "
+                            "nothing was selected."),
+                          parent=self.uistate.window)
 
     ####################################################################
     #
@@ -537,12 +542,13 @@ class ListView(NavigationView):
         """
         prompt = True
         if len(self.selected_handles()) > 1:
-            q = QuestionDialog2(
+            q = QuestionDialog2( # parent-OK
                 _("Multiple Selection Delete"),
                 _("More than one item has been selected for deletion. "
                   "Select the option indicating how to delete the items:"),
                 _("Delete All"),
-                _("Confirm Each Delete"))
+                _("Confirm Each Delete"),
+                parent=self.uistate.window)
             prompt = not q.run()
 
         if not prompt:
@@ -563,8 +569,9 @@ class ListView(NavigationView):
                 #if descr == "":
                 descr = object.get_gramps_id()
                 self.uistate.set_busy_cursor(True)
-                QuestionDialog(_('Delete %s?') % descr, msg,
-                               _('_Delete Item'), query.query_response)
+                QuestionDialog(_('Delete %s?') % descr, msg, # parent-OK
+                               _('_Delete Item'), query.query_response,
+                               parent=self.uistate.window)
                 self.uistate.set_busy_cursor(False)
             else:
                 query.query_response()

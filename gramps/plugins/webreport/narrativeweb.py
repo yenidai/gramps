@@ -1088,10 +1088,12 @@ class BasePage:
         if place_lat_long is None:
             return
         place_handle = place.get_handle()
+        event_date = event.get_date_object()
 
         # 0 = latitude, 1 = longitude, 2 - placetitle,
         # 3 = place handle, 4 = event date, 5 = event type
-        found = any(data[3] == place_handle for data in place_lat_long)
+        found = any(data[3] == place_handle and data[4] == event_date
+                        for data in place_lat_long)
         if not found:
             placetitle = _pd.display(self.r_db, place)
             latitude = place.get_latitude()
@@ -1099,7 +1101,6 @@ class BasePage:
             if latitude and longitude:
                 latitude, longitude = conv_lat_lon(latitude, longitude, "D.D8")
                 if latitude is not None:
-                    event_date = event.get_date_object()
                     etype = event.get_type()
 
                     # only allow Birth, Death, Census, Marriage,
@@ -6284,7 +6285,7 @@ class PersonPages(BasePage):
         # graph is being created?
         if self.report.options["ancestortree"]:
             if self.usecms:
-                fname = "".join([self.target_uri, "css", "ancestortree.css"])
+                fname = "/".join([self.target_uri, "css", "ancestortree.css"])
             else:
                 fname = "/".join(["css", "ancestortree.css"])
             url = self.report.build_url_fname(fname, None, self.uplink)
@@ -6498,7 +6499,7 @@ class PersonPages(BasePage):
 
         # add narrative-maps style sheet
         if self.usecms:
-            fname = "".join([self.target_uri, "css", "narrative-maps.css"])
+            fname = "/".join([self.target_uri, "css", "narrative-maps.css"])
         else:
             fname = "/".join(["css", "narrative-maps.css"])
         url = self.report.build_url_fname(fname, None, self.uplink)
@@ -9167,7 +9168,7 @@ class NavWebReport(Report):
             output_file.flush()
             tarinfo = tarfile.TarInfo(self.cur_fname)
             tarinfo.size = len(string_io.getvalue())
-            tarinfo.mtime = date if date is not None else time.time()
+            tarinfo.mtime = date if date != 0 else time.time()
             if not win():
                 tarinfo.uid = os.getuid()
                 tarinfo.gid = os.getgid()
@@ -9988,7 +9989,7 @@ CONTRACTIONS_DICT = {
     # ca Catalan validSubLocales="ca_AD ca_ES"
     "ca" : [(("l·", "L·"), "L")],
     # Czech, validSubLocales="cs_CZ" Czech_Czech Republic
-    "cs" : [(("ch", "cH", "Ch", "CH"), "Ch")],
+    "cs" : [(("ch", "cH", "Ch", "CH"), "CH")],
     # Danish validSubLocales="da_DK" Danish_Denmark
     "da" : [(("aa", "Aa", "AA"), "Å")],
     # de German validSubLocales="de_AT de_BE de_CH de_DE de_LI de_LU" no

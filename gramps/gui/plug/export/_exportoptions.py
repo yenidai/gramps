@@ -64,7 +64,8 @@ class Progress:
     """
     def __init__(self, uistate):
         from gi.repository import Gtk
-        self.pm = ProgressMeter(_("Selecting Preview Data"), _('Selecting...'),
+        self.pm = ProgressMeter(_("Selecting Preview Data"), # parent-OK
+                                _('Selecting...'),
                                 parent=uistate.window)
         self.progress_cnt = 0
         self.title = _("Selecting...")
@@ -662,8 +663,9 @@ class WriterOptionBox:
                        lambda : self.edit_filter_save(filterdb, namespace))
         else: # can't edit this filter
             from ...dialog import ErrorDialog
-            ErrorDialog(_("Cannot edit a system filter"),
-                        _("Please select a different filter to edit"))
+            ErrorDialog(_("Cannot edit a system filter"), # parent-OK
+                        _("Please select a different filter to edit"),
+                        parent=self.uistate.window)
 
     def edit_filter_save(self, filterdb, namespace):
         """

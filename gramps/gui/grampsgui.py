@@ -127,7 +127,7 @@ def _display_welcome_message(parent=None):
     Display a welcome message to the user.
     (This docstring seems very legacy/historical, not accurate.)
     """
-    _display_generic_message("master", 'behavior.betawarn', parent)
+    _display_generic_message("master", 'behavior.betawarn', parent=parent)
 
 def _display_generic_message(warning_type, config_key, parent=None):
     """
@@ -141,7 +141,7 @@ def _display_generic_message(warning_type, config_key, parent=None):
     """
     if not config.get(config_key):
         from .dialog import WarningDialog
-        WarningDialog(
+        WarningDialog( # parent-OK
             _('Danger: This is unstable code!'),
             _("This Gramps ('%s') is a development release.\n"
              ) % warning_type +
@@ -175,7 +175,8 @@ def _display_gtk_gettext_message(parent=None):
     LOG.warning("GTK translations missing, GUI will be broken, "
                 "especially for RTL languages!")
     from .dialog import WarningDialog
-    WarningDialog(_("Gramps detected an incomplete GTK installation"),
+    WarningDialog(_("Gramps detected " # parent-OK
+                    "an incomplete GTK installation"),
                   _("GTK translations for the current language (%(language)s) "
                     "are missing.\n"
                     "%(bold_start)sGramps%(bold_end)s will "
@@ -223,9 +224,9 @@ class Gramps:
         if (lin()
                 and glocale.lang != 'C'
                 and not gettext.find(GTK_GETTEXT_DOMAIN)):
-            _display_gtk_gettext_message(parent=self._vm.window)
+            _display_gtk_gettext_message(parent=self._vm.window) # parent-OK
 
-        _display_welcome_message(parent=self._vm.window)
+        _display_welcome_message(parent=self._vm.window) # parent-OK
 
         self._vm.init_interface()
 
@@ -261,7 +262,8 @@ class Gramps:
         if hasattr(self, '_vm'):
             if hasattr(self._vm, 'window'):
                 parent = self._vm.window
-        ErrorDialog(_("Error parsing arguments"), string, parent=parent)
+        ErrorDialog(_("Error parsing arguments"), string, # parent-OK
+                    parent=parent)
 
 #-------------------------------------------------------------------------
 #
@@ -279,13 +281,13 @@ def __startgramps(errors, argparser):
         #handle first existing errors in GUI fashion
         if errors:
             for error in errors:
-                ErrorDialog(error[0], error[1])
+                ErrorDialog(error[0], error[1]) # TODO no-parent
             Gtk.main_quit()
             sys.exit(1)
 
         if argparser.errors:
             for error in argparser.errors:
-                ErrorDialog(error[0], error[1])
+                ErrorDialog(error[0], error[1]) # TODO no-parent
             Gtk.main_quit()
             sys.exit(1)
 

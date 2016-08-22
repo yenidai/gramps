@@ -37,7 +37,8 @@ import sys
 from gramps.gen import user
 from .utils import ProgressMeter
 from .dialog import (WarningDialog, ErrorDialog, DBErrorDialog,
-                            InfoDialog, QuestionDialog2)
+                     RunDatabaseRepair, InfoDialog, QuestionDialog2)
+
 #-------------------------------------------------------------------------
 #
 # User class
@@ -67,9 +68,10 @@ class User(user.User):
         :returns: none
         """
         if self.uistate:
-            self._progress = ProgressMeter(title, parent=self.uistate.window)
+            self._progress = ProgressMeter(title, # parent-OK
+                                           parent=self.uistate.window)
         else:
-            self._progress = ProgressMeter(title)
+            self._progress = ProgressMeter(title) # parent-OK
         if steps > 0:
             self._progress.set_pass(message, steps, ProgressMeter.MODE_FRACTION)
         else:
@@ -111,8 +113,9 @@ class User(user.User):
         :returns: the user's answer to the question
         :rtype: bool
         """
-        dialog = QuestionDialog2(title, message, accept_label, reject_label,
-                                 parent)
+        dialog = QuestionDialog2(title, message, # parent-OK
+                                 accept_label, reject_label,
+                                 parent=parent)
         return dialog.run()
 
     def warn(self, title, warning=""):
@@ -126,9 +129,10 @@ class User(user.User):
         :returns: none
         """
         if self.uistate:
-            WarningDialog(title, warning, parent=self.uistate.window)
+            WarningDialog(title, warning, # parent-OK
+                          parent=self.uistate.window)
         else:
-            WarningDialog(title, warning)
+            WarningDialog(title, warning, parent=None) # parent-OK
 
     def notify_error(self, title, error=""):
         """
@@ -143,9 +147,9 @@ class User(user.User):
         if self.error_function:
             self.error_function(title, error)
         elif self.uistate:
-            ErrorDialog(title, error, parent=self.uistate.window)
+            ErrorDialog(title, error, parent=self.uistate.window) # parent-OK
         else:
-            ErrorDialog(title, error)
+            ErrorDialog(title, error, parent=None) # parent-OK
 
     def notify_db_error(self, error):
         """
@@ -156,12 +160,25 @@ class User(user.User):
         :returns: none
         """
         if self.uistate:
-            DBErrorDialog(error, parent=self.uistate.window)
+            DBErrorDialog(error, parent=self.uistate.window) # parent-OK
         else:
-            DBErrorDialog(error)
+            DBErrorDialog(error, parent=None) # parent-OK
 
-    def info(self, msg1, infotext, parent=None, monospaced=False):
+    def notify_db_repair(self, error):
+        """
+        Notify the user their DB might need repair.
+
+        :param error: the DB error message
+        :type error: str
+        :returns: none
+        """
+        if self.uistate:
+            RunDatabaseRepair(error, parent=self.uistate.window) # parent-OK
+        else:
+            RunDatabaseRepair(error, parent=None) # parent-OK
+
+    def info(self, msg1, infotext, parent=None, monospaced=False): # parent-OK
         """
         Calls the GUI InfoDialog
         """
-        InfoDialog(msg1, infotext, parent, monospaced)
+        InfoDialog(msg1, infotext, parent, monospaced) # parent-OK

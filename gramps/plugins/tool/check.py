@@ -103,7 +103,7 @@ def cross_table_duplicates(db, uistate):
         parent = uistate.window
     else:
         parent = None
-    progress = ProgressMeter(_('Checking Database'),'', parent)
+    progress = ProgressMeter(_('Checking Database'), '', parent) # parent-OK
     progress.set_pass(_('Looking for cross table duplicates'), 9)
     logging.info('Looking for cross table duplicates')
     total_nr_handles = 0
@@ -246,8 +246,8 @@ class CheckIntegrity:
         self.empty_objects = defaultdict(list)
         self.replaced_sourceref = []
         self.last_img_dir = config.get('behavior.addmedia-image-dir')
-        self.progress = ProgressMeter(_('Checking Database'),'',
-                                    parent=self.parent_window)
+        self.progress = ProgressMeter(_('Checking Database'), '', # parent-OK
+                                      parent=self.parent_window)
         self.explanation = Note(_('Objects referenced by this note '
             'were referenced but missing so that is why they have been created '
             'when you ran Check and Repair on %s.') %
@@ -722,7 +722,7 @@ class CheckIntegrity:
                                         'found' %
                                          {'desc' : photo_desc,
                                           'name' : photo_name})
-                        mmd = MissingMediaDialog(
+                        mmd = MissingMediaDialog( # parent-OK
                             _("Media object could not be found"),
                             _("The file:\n%(file_name)s\nis referenced in "
                               "the database, but no longer exists.\n"
@@ -2107,7 +2107,7 @@ class CheckIntegrity:
 
         if errors == 0:
             if uistate:
-                OkDialog(_("No errors were found"),
+                OkDialog(_("No errors were found"), # parent-OK
                          _('The database has passed internal checks'),
                          parent=uistate.window)
             else:

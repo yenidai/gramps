@@ -114,7 +114,8 @@ class LastNameDialog(ManagedWindow):
             # build up the list of surnames, keeping track of the count for each
             # name (this can be a lengthy process, so by passing in the
             # dictionary we can be certain we only do this once)
-            progress = ProgressMeter(_('Finding Surnames'))
+            progress = ProgressMeter( # parent-OK
+                _('Finding Surnames'), parent=uistate.window)
             progress.set_pass(_('Finding surnames'),
                               database.get_number_of_people())
             for person in database.iter_people():
@@ -1240,7 +1241,7 @@ class GuiPersonListOption(Gtk.Box):
                     spouse_name = _nd.display(spouse)
                     text = _('Also include %s?') % spouse_name
 
-                    prompt = OptionDialog(_('Select Person'),
+                    prompt = OptionDialog(_('Select Person'), # parent-OK
                                           text,
                                           _('No'), None,
                                           _('Yes'), None,
