@@ -36,7 +36,7 @@ from gramps.gen.const import GRAMPS_LOCALE as glocale
 _ = glocale.translation.sgettext
 from ..views.treemodels import PeopleBaseModel, PersonTreeModel
 from .baseselector import BaseSelector
-from gramps.gui.display import display_help
+from ..display import display_help
 from gramps.gen.const import URL_MANUAL_SECT1
 
 #-------------------------------------------------------------------------
@@ -79,8 +79,7 @@ class SelectPerson(BaseSelector):
         """
         Perform local initialisation for this class
         """
-        self.width_key = 'interface.person-sel-width'
-        self.height_key = 'interface.person-sel-height'
+        self.setup_configs('interface.person-sel', 600, 450)
         self.tree.connect('key-press-event', self._key_press)
 
     def get_window_title(self):

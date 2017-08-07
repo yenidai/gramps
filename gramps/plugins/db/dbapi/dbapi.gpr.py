@@ -17,6 +17,9 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
+from gramps.gen.plug._pluginreg import register, STABLE, DATABASE
+from gramps.gen.const import GRAMPS_LOCALE as glocale
+_ = glocale.translation.gettext
 
 register(DATABASE,
          id    = 'dbapi',
@@ -24,7 +27,7 @@ register(DATABASE,
          name_accell  = _("DB-_API Database"),
          description =  _("DB-API Database"),
          version = '1.0.32',
-         gramps_target_version = "5.0",
+         gramps_target_version = "5.1",
          status = STABLE,
          fname = 'dbapi.py',
          databaseclass = 'DBAPI',

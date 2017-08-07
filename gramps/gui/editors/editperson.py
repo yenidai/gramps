@@ -22,7 +22,7 @@
 #
 
 """
-EditPerson Dialog. Provide the interface to allow the GRAMPS program
+EditPerson Dialog. Provide the interface to allow the Gramps program
 to edit information about a particular Person.
 """
 
@@ -176,8 +176,6 @@ class EditPerson(EditPrimary):
         This is called by the base class of EditPrimary, and overridden here.
 
         """
-        self.width_key = 'interface.person-width'
-        self.height_key = 'interface.person-height'
         self.pname = self.obj.get_primary_name()
         self.should_guess_gender = (not self.obj.get_gramps_id() and
                                     self.obj.get_gender () ==
@@ -191,6 +189,7 @@ class EditPerson(EditPrimary):
 
         self.set_window(self.top.toplevel, None,
                         self.get_menu_title())
+        self.setup_configs('interface.person', 750, 550)
 
         self.obj_photo = self.top.get_object("personPix")
         self.frame_photo = self.top.get_object("frame5")
@@ -696,8 +695,8 @@ class EditPerson(EditPrimary):
                     None, None, self._make_home_person),
                 ])
 
-        self.all_action.set_visible(True)
-        self.home_action.set_visible(True)
+        self.all_action.set_visible(not self.added)
+        self.home_action.set_visible(not self.added)
 
         ui_top_cm = '''
             <menuitem action="ActivePerson"/>
@@ -857,19 +856,19 @@ class EditPerson(EditPrimary):
 
         self.db.set_birth_death_index(self.obj)
 
-        with DbTxn('', self.db) as trans:
-            self._update_family_ids()
-            if not self.obj.get_handle():
+        if not self.obj.handle:
+            with DbTxn(_("Add Person (%s)") % \
+                        self.name_displayer.display(self.obj),
+                       self.db) as trans:
                 self.db.add_person(self.obj, trans)
-                msg = _("Add Person (%s)") % \
-                        self.name_displayer.display(self.obj)
-            else:
-                if not self.obj.get_gramps_id():
-                    self.obj.set_gramps_id(self.db.find_next_person_gramps_id())
-                self.db.commit_person(self.obj, trans)
-                msg = _("Edit Person (%s)") % \
-                        self.name_displayer.display(self.obj)
-            trans.set_description(msg)
+        else:
+            if self.data_has_changed():
+                with DbTxn(_("Edit Person (%s)") % \
+                            self.name_displayer.display(self.obj),
+                           self.db) as trans:
+                    if not self.obj.get_gramps_id():
+                        self.obj.set_gramps_id(self.db.find_next_person_gramps_id())
+                    self.db.commit_person(self.obj, trans)
 
         self._do_close()
         if self.callback:

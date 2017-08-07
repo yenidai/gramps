@@ -86,13 +86,13 @@ class EditMediaRef(EditReference):
                            self._update_addmedia)
 
     def _local_init(self):
-        self.width_key = 'interface.media-ref-width'
-        self.height_key = 'interface.media-ref-height'
-        self.top = Glade()
 
+        self.top = Glade()
         self.set_window(self.top.toplevel,
                         self.top.get_object('title'),
                         _('Media Reference Editor'))
+        self.setup_configs('interface.media-ref', 600, 450)
+
         self.define_warn_box(self.top.get_object("warn_box"))
         self.top.get_object("label427").set_text(_("Y coordinate|Y"))
         self.top.get_object("label428").set_text(_("Y coordinate|Y"))
@@ -100,6 +100,7 @@ class EditMediaRef(EditReference):
         tblref =  self.top.get_object('table50')
         self.notebook_ref = self.top.get_object('notebook_ref')
         self.track_ref_for_deletion("notebook_ref")
+        self.expander = self.top.get_object('expander1')
         #recreate start page as GrampsTab
         self.notebook_ref.remove_page(0)
         self.reftab = RefTab(self.dbstate, self.uistate, self.track,
@@ -187,6 +188,7 @@ class EditMediaRef(EditReference):
         self.selection.set_multiple_selection(False)
         self.selection.connect("region-modified", self.region_modified)
         self.selection.connect("region-created", self.region_modified)
+        self.expander.connect("activate", self.selection.expander)
         frame = self.top.get_object("frame9")
         frame.add(self.selection)
         self.track_ref_for_deletion("selection")
@@ -384,6 +386,7 @@ class EditMediaRef(EditReference):
         real = self.selection.proportional_to_real_rect(self.rectangle)
         region = Region(real[0], real[1], real[2], real[3])
         self.selection.set_regions([region])
+        self.selection.select(region)  # update the selection box shown
         self.selection.refresh()
 
     def region_modified(self, widget):

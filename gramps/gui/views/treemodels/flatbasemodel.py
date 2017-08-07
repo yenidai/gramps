@@ -23,7 +23,7 @@
 """
 This module provides the flat treemodel that is used for all flat treeviews.
 
-For performance, GRAMPS does not use Gtk.TreeStore, as that would mean keeping
+For performance, Gramps does not use Gtk.TreeStore, as that would mean keeping
 the entire database table of an object in memory.
 Instead, it suffices to keep in memory the sortkey and the matching handle,
 as well as a map of sortkey,handle to treeview path, and vice versa.
@@ -310,10 +310,7 @@ class FlatNodeMap:
         :type path: integer
         :return handle: unicode form of the handle
         """
-        handle = self._index2hndl[self.real_index(path)][1]
-        if not isinstance(handle, str):
-            handle = handle.decode('utf-8')
-        return handle
+        return self._index2hndl[self.real_index(path)][1]
 
     def iter_next(self, iter):
         """
@@ -450,7 +447,7 @@ class FlatBaseModel(GObject.GObject, Gtk.TreeModel, BaseModel):
             so as to have localized sort
     """
 
-    def __init__(self, db, scol=0, order=Gtk.SortType.ASCENDING,
+    def __init__(self, db, uistate, scol=0, order=Gtk.SortType.ASCENDING,
                  search=None, skip=set(),
                  sort_map=None):
         cput = time.clock()
@@ -567,7 +564,7 @@ class FlatBaseModel(GObject.GObject, Gtk.TreeModel, BaseModel):
         # use cursor as a context manager
         with self.gen_cursor() as cursor:
             #loop over database and store the sort field, and the handle
-            srt_keys=[(self.sort_func(data), key.decode('utf8'))
+            srt_keys=[(self.sort_func(data), key)
                       for key, data in cursor]
             srt_keys.sort()
             return srt_keys
@@ -796,12 +793,7 @@ class FlatBaseModel(GObject.GObject, Gtk.TreeModel, BaseModel):
         val = self._get_value(handle, col)
         #print 'val is', val, type(val)
 
-        #GTK 3 should convert unicode objects automatically, but this
-        # gives wrong column values, so we convert for python 2.7
-        if not isinstance(val, str):
-            return val.encode('utf-8')
-        else:
-            return val
+        return val
 
     def do_iter_previous(self, iter):
         #print 'do_iter_previous'

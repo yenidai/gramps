@@ -20,8 +20,11 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
+from gramps.gen.plug._pluginreg import register, STABLE, UNSTABLE, GRAMPLET
+from gramps.gen.const import GRAMPS_LOCALE as glocale
+_ = glocale.translation.gettext
 
-MODULE_VERSION="5.0"
+MODULE_VERSION="5.1"
 
 #------------------------------------------------------------------------
 #
@@ -142,6 +145,23 @@ register(GRAMPLET,
          detached_height = 550,
          detached_width = 475,
          gramplet_title=_("Descendant Fan"),
+         version="1.0.0",
+         gramps_target_version=MODULE_VERSION,
+         navtypes=["Person"],
+         )
+
+register(GRAMPLET,
+         id= "2-Way Fan Chart",
+         name=_("2-Way Fan Chart"),
+         description = _("Gramplet showing active person's direct ancestors and descendants as a fanchart"),
+         status = STABLE,
+         fname="fanchart2waygramplet.py",
+         height=300,
+         expand=True,
+         gramplet = 'FanChart2WayGramplet',
+         detached_height =300,
+         detached_width = 300,
+         gramplet_title=_("2-Way Fan"),
          version="1.0.0",
          gramps_target_version=MODULE_VERSION,
          navtypes=["Person"],
@@ -1251,7 +1271,7 @@ register(GRAMPLET,
          gramps_target_version=MODULE_VERSION,
          status = UNSTABLE,
          fname="leak.py",
-         height=200,
+         height=400,
          gramplet = 'Leak',
          gramplet_title="Uncollected Objects",
          )

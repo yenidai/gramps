@@ -79,7 +79,7 @@ _ExportAssistant_pages = {
             'summary'                : 5,
             }
 
-class ExportAssistant(Gtk.Assistant, ManagedWindow) :
+class ExportAssistant(ManagedWindow, Gtk.Assistant):
     """
     This class creates a GTK assistant to guide the user through the various
     Save as/Export options.
@@ -109,17 +109,19 @@ class ExportAssistant(Gtk.Assistant, ManagedWindow) :
         self.writestarted = False
         self.confirm = None
 
+        # set export mode and busy mode to avoid all other operations
+        self.uistate.set_export_mode(True)
+
         #set up Assistant
         Gtk.Assistant.__init__(self)
 
         #set up ManagedWindow
         self.top_title = _("Export Assistant")
-        ManagedWindow.__init__(self, uistate, [], self.__class__)
+        ManagedWindow.__init__(self, uistate, [], self.__class__, modal=True)
 
         #set_window is present in both parent classes
-        ManagedWindow.set_window(self, self, None,
-            self.top_title, isWindow=True)
-        self.set_position(Gtk.WindowPosition.CENTER_ON_PARENT)
+        self.set_window(self, None, self.top_title, isWindow=True)
+        self.setup_configs('interface.exportassistant', 760, 500)
 
         #set up callback method for the export plugins
         self.callback = self.pulse_progressbar
@@ -152,11 +154,11 @@ class ExportAssistant(Gtk.Assistant, ManagedWindow) :
         self.set_forward_page_func(self.forward_func, None)
 
         #ManagedWindow show method
-        ManagedWindow.show(self)
+        self.show()
 
     def build_menu_names(self, obj):
         """Override ManagedWindow method."""
-        return (self.top_title, None)
+        return (self.top_title, self.top_title)
 
     def create_page_intro(self):
         """Create the introduction page."""
@@ -169,7 +171,6 @@ class ExportAssistant(Gtk.Assistant, ManagedWindow) :
         image.set_from_file(SPLASH)
 
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        box.set_size_request(600, -1) # wide enough it won't have to expand
         box.pack_start(image, False, False, 5)
         box.pack_start(label, False, False, 5)
 
@@ -231,7 +232,7 @@ class ExportAssistant(Gtk.Assistant, ManagedWindow) :
     def create_page_options(self):
         # as we do not know yet what to show, we create an empty page
         page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        page.set_border_width(12)
+        page.set_border_width(0)
         page.set_spacing(12)
 
         page.show_all()
@@ -272,7 +273,9 @@ class ExportAssistant(Gtk.Assistant, ManagedWindow) :
         list(map(vbox.remove, vbox.get_children()))
         # add new content
         if config_box_class:
-            self.option_box_instance = config_box_class(self.person, self.dbstate, self.uistate)
+            self.option_box_instance = config_box_class(
+                self.person, self.dbstate, self.uistate, track=self.track,
+                window=self.window)
             box = self.option_box_instance.get_option_box()
             vbox.add(box)
         else:
@@ -348,6 +351,8 @@ class ExportAssistant(Gtk.Assistant, ManagedWindow) :
         box.set_spacing(6)
         box.pack_start(image, False, False, 5)
         box.pack_start(self.confirm, False, False, 5)
+        self.progressbar = Gtk.ProgressBar()
+        box.pack_start(self.progressbar, False, False, 0)
 
         page = box
         self.append_page(page)
@@ -367,13 +372,10 @@ class ExportAssistant(Gtk.Assistant, ManagedWindow) :
         image.set_from_file(SPLASH)
         vbox.pack_start(image, False, False, 5)
 
-        self.labelsum = Gtk.Label(label=_("Please wait while your data is selected and exported"))
+        self.labelsum = Gtk.Label()
         self.labelsum.set_line_wrap(True)
         self.labelsum.set_use_markup(True)
         vbox.pack_start(self.labelsum, False, False, 0)
-
-        self.progressbar = Gtk.ProgressBar()
-        vbox.pack_start(self.progressbar, True, True, 0)
 
         page = vbox
         page.show_all()
@@ -387,6 +389,7 @@ class ExportAssistant(Gtk.Assistant, ManagedWindow) :
         pass
 
     def do_close(self):
+        self.uistate.set_export_mode(False)
         if self.writestarted :
             pass
         else :
@@ -483,6 +486,7 @@ class ExportAssistant(Gtk.Assistant, ManagedWindow) :
                 # Override message
                 confirm_text = self.option_box_instance.confirm_text
             self.confirm.set_label(confirm_text)
+            self.progressbar.hide()
 
         elif self.get_page_type(page) ==  Gtk.AssistantPageType.SUMMARY :
             # The summary page
@@ -523,11 +527,6 @@ class ExportAssistant(Gtk.Assistant, ManagedWindow) :
 
         #remember previous page for next time
         self.__previous_page = page_number
-
-    def close(self, *obj) :
-        #clean up ManagedWindow menu, then destroy window, bring forward parent
-        Gtk.Assistant.destroy(self)
-        ManagedWindow.close(self,*obj)
 
     def get_intro_text(self):
         return _('Under normal circumstances, Gramps does not require you '
@@ -594,7 +593,8 @@ class ExportAssistant(Gtk.Assistant, ManagedWindow) :
             export_function = self.map_exporters[ix].get_export_function()
             success = export_function(self.dbstate.db,
                             filename,
-                            User(error=ErrorDialog, callback=self.callback),
+                            User(error=ErrorDialog, parent=self.uistate.window,
+                                 callback=self.callback),
                             self.option_box_instance)
         except:
             #an error not catched in the export_function itself
@@ -602,37 +602,35 @@ class ExportAssistant(Gtk.Assistant, ManagedWindow) :
             log.error(_("Error exporting your Family Tree"), exc_info=True)
         return success
 
-    def pre_save(self,page):
-        #as all is locked, show the page, which assistant normally only does
-        # after prepare signal!
+    def pre_save(self, page):
+        ''' Since we are in 'prepare', the next page is not yet shown, so
+        modify the 'confirm' page text and show the progress bar
+        '''
+        self.confirm.set_label(
+            _("Please wait while your data is selected and exported"))
         self.writestarted = True
-        page.set_child_visible(True)
+        self.progressbar.show()
         self.show_all()
 
-        self.uistate.set_busy_cursor(True)
         self.set_busy_cursor(1)
 
     def post_save(self):
-        self.uistate.set_busy_cursor(False)
         self.set_busy_cursor(0)
         self.progressbar.hide()
         self.writestarted = False
 
     def set_busy_cursor(self,value):
-        """Set or unset the busy cursor while saving data.
-
-            Note : self.get_window() is the Gtk.Assistant Gtk.Window, not
-                   a part of ManagedWindow
-
+        """
+        Set or unset the busy cursor while saving data.
         """
         BUSY_CURSOR = Gdk.Cursor.new_for_display(Gdk.Display.get_default(),
                                                  Gdk.CursorType.WATCH)
 
         if value:
-            self.get_window().set_cursor(BUSY_CURSOR)
+            Gtk.Assistant.get_window(self).set_cursor(BUSY_CURSOR)
             #self.set_sensitive(0)
         else:
-            self.get_window().set_cursor(None)
+            Gtk.Assistant.get_window(self).set_cursor(None)
             #self.set_sensitive(1)
 
         while Gtk.events_pending():
@@ -642,6 +640,9 @@ class ExportAssistant(Gtk.Assistant, ManagedWindow) :
         self.progressbar.set_fraction(min(value/100.0, 1.0))
         if text:
             self.progressbar.set_text("%s: %d%%" % (text, value))
+            self.confirm.set_label(
+                _("Please wait while your data is selected and exported") +
+                "\n" + text)
         else:
             self.progressbar.set_text("%d%%" % value)
         while Gtk.events_pending():

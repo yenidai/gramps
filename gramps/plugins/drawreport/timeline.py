@@ -79,7 +79,7 @@ class TimeLine(Report):
 
         The arguments are:
 
-        database        - the GRAMPS database instance
+        database        - the Gramps database instance
         options         - instance of the Options class for this report
         user            - instance of gen.user.User()
 
@@ -99,15 +99,15 @@ class TimeLine(Report):
         self._user = user
         menu = options.menu
 
-        lang = options.menu.get_option_by_name('trans').get_value()
-        rlocale = self.set_locale(lang)
+        self.set_locale(options.menu.get_option_by_name('trans').get_value())
 
         stdoptions.run_private_data_option(self, menu)
-        living_opt = stdoptions.run_living_people_option(self, menu, rlocale)
+        living_opt = stdoptions.run_living_people_option(self, menu,
+                                                         self._locale)
         self.database = CacheProxyDb(self.database)
 
         self.filter = menu.get_option_by_name('filter').get_filter()
-        self.fil_name = "(%s)" % self.filter.get_name(rlocale)
+        self.fil_name = "(%s)" % self.filter.get_name(self._locale)
 
         living_value = menu.get_option_by_name('living_people').get_value()
         for (value, description) in living_opt.get_items(xml_items=True):
@@ -129,12 +129,9 @@ class TimeLine(Report):
 
     def write_report(self):
         # Apply the filter
-        with self._user.progress(_('Timeline'),
-                                 _('Applying filter...'),
-                                 self.database.get_number_of_people()) as step:
-            self.plist = self.filter.apply(self.database,
-                                           self.database.iter_person_handles(),
-                                           step)
+        self.plist = self.filter.apply(self.database,
+                                       self.database.iter_person_handles(),
+                                       user=self._user)
 
         # Find the range of dates to include
         (low, high) = self.find_year_range()
@@ -377,7 +374,8 @@ class TimeLine(Report):
     def name_size(self):
         """ get the length of the name """
         self.plist = self.filter.apply(self.database,
-                                       self.database.iter_person_handles())
+                                       self.database.iter_person_handles(),
+                                       user=self._user)
 
         style_sheet = self.doc.get_style_sheet()
         gstyle = style_sheet.get_draw_style('TLG-text')
@@ -425,6 +423,16 @@ class TimeLineOptions(MenuReportOptions):
         menu.add_option(category_name, "pid", self.__pid)
         self.__pid.connect('value-changed', self.__update_filters)
 
+        sortby = EnumeratedListOption(_('Sort by'), 0)
+        idx = 0
+        for item in _get_sort_functions(Sort(self.__db)):
+            sortby.add_item(idx, _(item[0]))
+            idx += 1
+        sortby.set_help(_("Sorting method to use"))
+        menu.add_option(category_name, "sortby", sortby)
+
+        category_name = _("Report Options (2)")
+
         self._nf = stdoptions.add_name_format_option(menu, category_name)
         self._nf.connect('value-changed', self.__update_filters)
 
@@ -433,14 +441,6 @@ class TimeLineOptions(MenuReportOptions):
         stdoptions.add_private_data_option(menu, category_name)
 
         stdoptions.add_living_people_option(menu, category_name)
-
-        sortby = EnumeratedListOption(_('Sort by'), 0)
-        idx = 0
-        for item in _get_sort_functions(Sort(self.__db)):
-            sortby.add_item(idx, _(item[0]))
-            idx += 1
-        sortby.set_help(_("Sorting method to use"))
-        menu.add_option(category_name, "sortby", sortby)
 
         stdoptions.add_localization_option(menu, category_name)
 
@@ -452,8 +452,8 @@ class TimeLineOptions(MenuReportOptions):
         person = self.__db.get_person_from_gramps_id(gid)
         nfv = self._nf.get_value()
         filter_list = utils.get_person_filters(person,
-                                                     include_single=False,
-                                                     name_format=nfv)
+                                               include_single=False,
+                                               name_format=nfv)
         self.__filter.set_filters(filter_list)
 
     def __filter_changed(self):
@@ -462,12 +462,11 @@ class TimeLineOptions(MenuReportOptions):
         disable the person option
         """
         filter_value = self.__filter.get_value()
-        if filter_value in [1, 2, 3, 4]:
-            # Filters 1, 2, 3 and 4 rely on the center person
-            self.__pid.set_available(True)
-        else:
-            # The rest don't
+        if filter_value == 0: # "Entire Database" (as "include_single=False")
             self.__pid.set_available(False)
+        else:
+            # The other filters need a center person (assume custom ones too)
+            self.__pid.set_available(True)
 
     def make_default_style(self, default_style):
         """Make the default output style for the Timeline report."""
@@ -477,7 +476,7 @@ class TimeLineOptions(MenuReportOptions):
         fstyle.set_type_face(FONT_SANS_SERIF)
         pstyle = ParagraphStyle()
         pstyle.set_font(fstyle)
-        pstyle.set_description(_("The style used for the person's name."))
+        pstyle.set_description(_("The basic style used for the text display."))
         default_style.add_paragraph_style("TLG-Name", pstyle)
 
         fstyle = FontStyle()
@@ -486,7 +485,7 @@ class TimeLineOptions(MenuReportOptions):
         pstyle = ParagraphStyle()
         pstyle.set_font(fstyle)
         pstyle.set_alignment(PARA_ALIGN_CENTER)
-        pstyle.set_description(_("The style used for the year labels."))
+        pstyle.set_description(_("The style used for the section headers."))
         default_style.add_paragraph_style("TLG-Label", pstyle)
 
         fstyle = FontStyle()
@@ -495,7 +494,7 @@ class TimeLineOptions(MenuReportOptions):
         pstyle = ParagraphStyle()
         pstyle.set_font(fstyle)
         pstyle.set_alignment(PARA_ALIGN_CENTER)
-        pstyle.set_description(_("The style used for the title of the page."))
+        pstyle.set_description(_("The style used for the title."))
         default_style.add_paragraph_style("TLG-Title", pstyle)
 
         """

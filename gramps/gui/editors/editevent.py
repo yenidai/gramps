@@ -105,12 +105,10 @@ class EditEvent(EditPrimary):
                       key=lambda s: s.lower())
 
     def _local_init(self):
-        self.width_key = 'interface.event-width'
-        self.height_key = 'interface.event-height'
-
         self.top = Glade()
         self.set_window(self.top.toplevel, None,
                         self.get_menu_title())
+        self.setup_configs('interface.event', 600, 450)
 
         self.place = self.top.get_object('place')
         self.share_btn = self.top.get_object('select_place')
@@ -230,7 +228,7 @@ class EditEvent(EditPrimary):
         return (_('Edit Event'), self.get_menu_title())
 
     def help_clicked(self, obj):
-        """Display the relevant portion of GRAMPS manual"""
+        """Display the relevant portion of Gramps manual"""
         display_help(webpage=WIKI_HELP_PAGE, section=WIKI_HELP_SEC)
 
     def save(self, *obj):
@@ -271,13 +269,12 @@ class EditEvent(EditPrimary):
                        self.db) as trans:
                 self.db.add_event(self.obj, trans)
         else:
-            orig = self.get_from_handle(self.obj.handle)
-            if self.obj.serialize() != orig.serialize():
+            if self.data_has_changed():
                 with DbTxn(_("Edit Event (%s)") % self.obj.get_gramps_id(),
                            self.db) as trans:
                     if not self.obj.get_gramps_id():
                         self.obj.set_gramps_id(self.db.find_next_event_gramps_id())
-                    self.commit_event(self.obj, trans)
+                    self.db.commit_event(self.obj, trans)
 
         if self.callback:
             self.callback(self.obj)

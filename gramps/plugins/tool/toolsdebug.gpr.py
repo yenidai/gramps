@@ -17,12 +17,15 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
+from gramps.gen.plug._pluginreg import *
+from gramps.gen.const import GRAMPS_LOCALE as glocale
+_ = glocale.translation.gettext
 
 """
 GRAMPS registration file
 """
 
-MODULE_VERSION="5.0"
+MODULE_VERSION="5.1"
 
 #------------------------------------------------------------------------
 #
@@ -58,8 +61,8 @@ tool_modes = [TOOL_MODE_GUI, TOOL_MODE_CLI]
 
 register(TOOL,
 id    = 'dgenstats',
-name  = "Dump Gender Statistics",
-description =  ("Will dump the statistics for the gender guessing "
+name  = _("Dump Gender Statistics"),
+description = _("Will dump the statistics for guessing the gender "
                 "from the first name."),
 version = '1.0',
 gramps_target_version = MODULE_VERSION,

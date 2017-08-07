@@ -160,6 +160,16 @@ class RelationshipView(NavigationView):
         self.theme = self._config.get('preferences.relation-display-theme')
         self.toolbar_visible = config.get('interface.toolbar-on')
 
+    def get_handle_from_gramps_id(self, gid):
+        """
+        returns the handle of the specified object
+        """
+        obj = self.dbstate.db.get_person_from_gramps_id(gid)
+        if obj:
+            return obj.get_handle()
+        else:
+            return None
+
     def _connect_db_signals(self):
         """
         implement from base class DbGUIElement
@@ -525,7 +535,7 @@ class RelationshipView(NavigationView):
                 if family_handle:
                     self.write_parents(family_handle, person)
         else:
-            self.write_label("%s:" % _('Parents'), None, True, person)
+            self.write_label(_("%s:") % _('Parents'), None, True, person)
             self.row += 1
 
         family_handle_list = person.get_family_handle_list()
@@ -589,7 +599,7 @@ class RelationshipView(NavigationView):
         self._set_draggable_person(eventbox, person.get_handle())
         # Gramps ID
 
-        subgrid.attach(widgets.BasicLabel("%s:" % _('ID')), 1, 0, 1, 1)
+        subgrid.attach(widgets.BasicLabel(_("%s:") % _('ID')), 1, 0, 1, 1)
         label = widgets.BasicLabel(person.gramps_id)
         label.set_hexpand(True)
         subgrid.attach(label, 2, 0, 1, 1)
@@ -601,7 +611,7 @@ class RelationshipView(NavigationView):
         else:
             birth_title = _("Birth")
 
-        subgrid.attach(widgets.BasicLabel("%s:" % birth_title), 1, 1, 1, 1)
+        subgrid.attach(widgets.BasicLabel(_("%s:") % birth_title), 1, 1, 1, 1)
         subgrid.attach(widgets.BasicLabel(self.format_event(birth)), 2, 1, 1, 1)
 
         death = get_death_or_fallback(self.dbstate.db, person)
@@ -618,7 +628,7 @@ class RelationshipView(NavigationView):
                     death_date = death.get_date_object()
                     if (death_date and death_date.get_valid()):
                         age = death_date - birth_date
-                        subgrid.attach(widgets.BasicLabel("%s:" % death_title),
+                        subgrid.attach(widgets.BasicLabel(_("%s:") % death_title),
                                       1, 2, 1, 1)
                         subgrid.attach(widgets.BasicLabel("%s (%s)" %
                                                          (self.format_event(death), age),
@@ -628,12 +638,12 @@ class RelationshipView(NavigationView):
                 if not showed_death:
                     age = Today() - birth_date
                     if probably_alive(person, self.dbstate.db):
-                        subgrid.attach(widgets.BasicLabel("%s:" % _("Alive")),
+                        subgrid.attach(widgets.BasicLabel(_("%s:") % _("Alive")),
                                       1, 2, 1, 1)
                         subgrid.attach(widgets.BasicLabel("(%s)" % age, Pango.EllipsizeMode.END),
                                       2, 2, 1, 1)
                     else:
-                        subgrid.attach(widgets.BasicLabel("%s:" % _("Death")),
+                        subgrid.attach(widgets.BasicLabel(_("%s:") % _("Death")),
                                       1, 2, 1, 1)
                         subgrid.attach(widgets.BasicLabel("%s (%s)" % (_("unknown"), age),
                                                          Pango.EllipsizeMode.END),
@@ -641,7 +651,7 @@ class RelationshipView(NavigationView):
                     showed_death = True
 
         if not showed_death:
-            subgrid.attach(widgets.BasicLabel("%s:" % death_title),
+            subgrid.attach(widgets.BasicLabel(_("%s:") % death_title),
                           1, 2, 1, 1)
             subgrid.attach(widgets.BasicLabel(self.format_event(death)),
                           2, 2, 1, 1)
@@ -804,8 +814,8 @@ class RelationshipView(NavigationView):
                 call_fcn = self.add_family
                 del_fcn = self.delete_family
 
-            if not self.toolbar_visible and not self.dbstate.db.readonly:
-                # Show edit-Buttons if toolbar is not visible
+            if not self.dbstate.db.readonly:
+                # Show edit-Buttons only if db is not readonly
                 if self.reorder_sensitive:
                     add = widgets.IconButton(self.reorder_button_press, None,
                                              'view-sort-ascending')
@@ -849,7 +859,7 @@ class RelationshipView(NavigationView):
             return
         if person and self.check_collapsed(person.handle, family_handle):
             # don't show rest
-            self.write_label("%s:" % _('Parents'), family, True, person)
+            self.write_label(_("%s:") % _('Parents'), family, True, person)
             self.row -= 1 # back up one row for summary names
             active = self.get_active()
             child_list = [ref.ref for ref in family.get_child_ref_list()
@@ -885,7 +895,7 @@ class RelationshipView(NavigationView):
                                _PDATA_STOP-_PDATA_START, 1)
             self.row += 1 # now advance it
         else:
-            self.write_label("%s:" % _('Parents'), family, True, person)
+            self.write_label(_("%s:") % _('Parents'), family, True, person)
             self.write_person(_('Father'), family.get_father_handle())
             self.write_person(_('Mother'), family.get_mother_handle())
 
@@ -1365,7 +1375,7 @@ class RelationshipView(NavigationView):
         # collapse button
         if self.check_collapsed(person.handle, family_handle):
             # show "> Family: ..." and nothing else
-            self.write_label("%s:" % _('Family'), family, False, person)
+            self.write_label(_("%s:") % _('Family'), family, False, person)
             self.row -= 1 # back up
             child_list = family.get_child_ref_list()
             if child_list:
@@ -1389,7 +1399,7 @@ class RelationshipView(NavigationView):
             self.row += 1 # now advance it
         else:
             # show "V Family: ..." and the rest
-            self.write_label("%s:" % _('Family'), family, False, person)
+            self.write_label(_("%s:") % _('Family'), family, False, person)
             if (handle or
                     family.get_relationship() != FamilyRelType.UNKNOWN):
                 box = self.write_person(_('Spouse'), handle)
@@ -1531,10 +1541,11 @@ class RelationshipView(NavigationView):
             name.add_surname(Surname())
             name.set_primary_surname(0)
             family = self.dbstate.db.get_family_from_handle(handle)
-            father = self.dbstate.db.get_person_from_handle(
-                                        family.get_father_handle())
-            if father:
-                preset_name(father, name)
+            father_h = family.get_father_handle()
+            if father_h:
+                father = self.dbstate.db.get_person_from_handle(father_h)
+                if father:
+                    preset_name(father, name)
             person.set_primary_name(name)
             try:
                 EditPerson(self.dbstate, self.uistate, [], person,

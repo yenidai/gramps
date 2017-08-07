@@ -210,7 +210,7 @@ def estimate_age(dbase, person,
     and lower bounds of the person's age is returned. If either
     the birth or death date is missing, a (-1, -1) is returned.
 
-    @param dbase: GRAMPS database to which the Person object belongs
+    @param dbase: Gramps database to which the Person object belongs
     @type dbase: DbBase
     @param person: Person object to calculate the age of
     @type person: Person
@@ -575,7 +575,7 @@ class Extract:
             for child_ref in fam.get_child_ref_list():
                 children.append(child_ref.ref)
         # TODO: it would be good to return only biological children,
-        # but GRAMPS doesn't offer any efficient way to check that
+        # but Gramps doesn't offer any efficient way to check that
         # (I don't want to check each children's parent family mother
         # and father relations as that would make this *much* slower)
         if children:
@@ -637,13 +637,13 @@ class Extract:
                     chart[1][key] = 1
 
 
-    def collect_data(self, dbase, filter_func, menu, genders,
+    def collect_data(self, dbase, people, menu, genders,
                      year_from, year_to, no_years, cb_progress, rlocale):
         """goes through the database and collects the selected personal
         data persons fitting the filter and birth year criteria. The
         arguments are:
-        dbase       - the GRAMPS database
-        filter_func - filtering function selected by the StatisticsDialog
+        dbase       - the Gramps database
+        people      - a list of filtered people
         options     - report options_dict which sets which methods are used
         genders     - which gender(s) to include into statistics
         year_from   - use only persons who've born this year of after
@@ -672,9 +672,7 @@ class Extract:
                 data.append((ext[name][1], {}, ext[name][2], ext[name][3]))
 
         # go through the people and collect data
-        for person_handle in filter_func.apply(dbase,
-                                               dbase.iter_person_handles(),
-                                               cb_progress):
+        for person_handle in people:
             cb_progress()
             person = dbase.get_person_from_handle(person_handle)
             # check whether person has suitable gender
@@ -731,7 +729,7 @@ class StatisticsChart(Report):
 
         The arguments are:
 
-        database        - the GRAMPS database instance
+        database        - the Gramps database instance
         options         - instance of the Options class for this report
         user            - a gen.user.User() instance
         incl_private  - Whether to include private data
@@ -742,13 +740,13 @@ class StatisticsChart(Report):
         menu = options.menu
         self._user = user
 
-        lang = menu.get_option_by_name('trans').get_value()
-        rlocale = self.set_locale(lang)
+        self.set_locale(menu.get_option_by_name('trans').get_value())
         # override default gettext, or English output will have "person|Title"
-        self._ = rlocale.translation.sgettext
+        self._ = self._locale.translation.sgettext
 
         stdoptions.run_private_data_option(self, menu)
-        living_opt = stdoptions.run_living_people_option(self, menu, rlocale)
+        living_opt = stdoptions.run_living_people_option(self, menu,
+                                                         self._locale)
         self.database = CacheProxyDb(self.database)
 
         get_option_by_name = menu.get_option_by_name
@@ -756,7 +754,7 @@ class StatisticsChart(Report):
 
         filter_opt = get_option_by_name('filter')
         self.filter = filter_opt.get_filter()
-        self.fil_name = "(%s)" % self.filter.get_name(rlocale)
+        self.fil_name = "(%s)" % self.filter.get_name(self._locale)
 
         self.bar_items = get_value('bar_items')
         year_from = get_value('year_from')
@@ -795,15 +793,19 @@ class StatisticsChart(Report):
                                  "%(year_from)04d-%(year_to)04d"
                                 ) % mapping
 
+        people = self.filter.apply(self.database,
+                                   self.database.iter_person_handles(),
+                                   user=self._user)
+
         # extract requested items from the database and count them
         self._user.begin_progress(_('Statistics Charts'),
                                   _('Collecting data...'),
                                   self.database.get_number_of_people())
-        tables = _Extract.collect_data(self.database, self.filter, menu,
+        tables = _Extract.collect_data(self.database, people, menu,
                                        gender, year_from, year_to,
                                        get_value('no_years'),
                                        self._user.step_progress,
-                                       rlocale)
+                                       self._locale)
         self._user.end_progress()
 
         self._user.begin_progress(_('Statistics Charts'),
@@ -996,22 +998,6 @@ class StatisticsChartOptions(MenuReportOptions):
         menu.add_option(category_name, "pid", self.__pid)
         self.__pid.connect('value-changed', self.__update_filters)
 
-        self._nf = stdoptions.add_name_format_option(menu, category_name)
-        self._nf.connect('value-changed', self.__update_filters)
-
-        self.__update_filters()
-
-        stdoptions.add_private_data_option(menu, category_name)
-
-        stdoptions.add_living_people_option(menu, category_name)
-
-        stdoptions.add_localization_option(menu, category_name)
-
-        ################################
-        category_name = _("Report Details")
-        add_option = partial(menu.add_option, category_name)
-        ################################
-
         sortby = EnumeratedListOption(_('Sort chart items by'),
                                       _options.SORT_VALUE)
         for item_idx in range(len(_options.opt_sorts)):
@@ -1055,20 +1041,40 @@ class StatisticsChartOptions(MenuReportOptions):
                              "used instead of a bar chart."))
         add_option("bar_items", bar_items)
 
-        # -------------------------------------------------
+        ################################
+        category_name = _("Report Options (2)")
+        add_option = partial(menu.add_option, category_name)
+        ################################
+
+        self._nf = stdoptions.add_name_format_option(menu, category_name)
+        self._nf.connect('value-changed', self.__update_filters)
+
+        self.__update_filters()
+
+        stdoptions.add_private_data_option(menu, category_name)
+
+        stdoptions.add_living_people_option(menu, category_name)
+
+        stdoptions.add_localization_option(menu, category_name)
+
+        ################################
         # List of available charts on separate option tabs
+        ################################
+
         idx = 0
-        half = len(_Extract.extractors) // 2
+        third = (len(_Extract.extractors) + 1) // 3
         chart_types = []
         for (chart_opt, ctuple) in _Extract.extractors.items():
             chart_types.append((_(ctuple[1]), chart_opt, ctuple))
         sorted_chart_types = sorted(chart_types,
                                     key=lambda x: glocale.sort_key(x[0]))
         for (translated_option_name, opt_name, ctuple) in sorted_chart_types:
-            if idx <= half:
-                category_name = _("Charts 1")
-            else:
+            if idx >= (third * 2):
+                category_name = _("Charts 3")
+            elif idx >= third:
                 category_name = _("Charts 2")
+            else:
+                category_name = _("Charts 1")
             opt = BooleanOption(translated_option_name, False)
             opt.set_help(_("Include charts with indicated data."))
             menu.add_option(category_name, opt_name, opt)
@@ -1087,8 +1093,8 @@ class StatisticsChartOptions(MenuReportOptions):
         person = self.__db.get_person_from_gramps_id(gid)
         nfv = self._nf.get_value()
         filter_list = utils.get_person_filters(person,
-                                                     include_single=False,
-                                                     name_format=nfv)
+                                               include_single=False,
+                                               name_format=nfv)
         self.__filter.set_filters(filter_list)
 
     def __filter_changed(self):
@@ -1097,12 +1103,11 @@ class StatisticsChartOptions(MenuReportOptions):
         disable the person option
         """
         filter_value = self.__filter.get_value()
-        if filter_value in [1, 2, 3, 4]:
-            # Filters 1, 2, 3 and 4 rely on the center person
-            self.__pid.set_available(True)
-        else:
-            # The rest don't
+        if filter_value == 0: # "Entire Database" (as "include_single=False")
             self.__pid.set_available(False)
+        else:
+            # The other filters need a center person (assume custom ones too)
+            self.__pid.set_available(True)
 
     def make_default_style(self, default_style):
         """Make the default output style for the Statistics report."""
@@ -1122,7 +1127,7 @@ class StatisticsChartOptions(MenuReportOptions):
         pstyle = ParagraphStyle()
         pstyle.set_font(fstyle)
         pstyle.set_alignment(PARA_ALIGN_CENTER)
-        pstyle.set_description(_("The style used for the title of the page."))
+        pstyle.set_description(_("The style used for the title."))
         default_style.add_paragraph_style("SC-Title", pstyle)
 
         """

@@ -38,7 +38,7 @@ from gramps.gen.display.name import displayer as name_displayer
 from gramps.gen.display.place import displayer as place_displayer
 from gramps.gen.datehandler import get_date
 from gramps.gen.utils.file import media_path_full
-from gramps.gen.const import GRAMPS_LOCALE as glocale
+from gramps.gen.const import COLON, GRAMPS_LOCALE as glocale
 _ = glocale.translation.gettext
 
 class PersonDetails(Gramplet):
@@ -74,7 +74,7 @@ class PersonDetails(Gramplet):
         """
         Add a row to the table.
         """
-        label = Gtk.Label(label=title + ':', halign=Gtk.Align.END,
+        label = Gtk.Label(label=title + COLON, halign=Gtk.Align.END,
                           valign=Gtk.Align.START)
         label.show()
         value = Gtk.Label(label=value, halign=Gtk.Align.START)
@@ -89,7 +89,7 @@ class PersonDetails(Gramplet):
         list(map(self.grid.remove, self.grid.get_children()))
 
     def db_changed(self):
-        self.dbstate.db.connect('person-update', self.update)
+        self.connect(self.dbstate.db, 'person-update', self.update)
 
     def active_changed(self, handle):
         self.update()

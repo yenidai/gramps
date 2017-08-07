@@ -51,6 +51,7 @@ from gramps.gen.plug.docgen import (IndexMark, FontStyle, ParagraphStyle,
 from gramps.gen.display.place import displayer as _pd
 from gramps.gen.proxy import CacheProxyDb
 from gramps.gen.errors import ReportError
+from gramps.gen.utils.db import family_name
 
 #------------------------------------------------------------------------
 #
@@ -66,7 +67,7 @@ class FamilyGroup(Report):
 
         The arguments are:
 
-        database        - the GRAMPS database instance
+        database        - the Gramps database instance
         options         - instance of the Options class for this report
         user            - a gen.user.User() instance
 
@@ -86,9 +87,10 @@ class FamilyGroup(Report):
         self._user = user
         menu = options.menu
 
-        lang = menu.get_option_by_name('trans').get_value()
-        self._locale = self.set_locale(lang)
+        self.set_locale(menu.get_option_by_name('trans').get_value())
         self._ = self._locale.translation.sgettext # needed for English
+
+        stdoptions.run_date_format_option(self, menu)
 
         stdoptions.run_private_data_option(self, menu)
         stdoptions.run_living_people_option(self, menu, self._locale)
@@ -99,7 +101,7 @@ class FamilyGroup(Report):
 
         get_option_by_name = menu.get_option_by_name
         get_value = lambda name: get_option_by_name(name).get_value()
-        self.gramps_ids = get_value('gramps_ids')
+        self.gramps_ids = get_value('inc_id')
         self.recursive = get_value('recursive')
         self.missing_info = get_value('missinginfo')
         self.generations = get_value('generations')
@@ -606,6 +608,9 @@ class FamilyGroup(Report):
                         self.dump_child_event('FGR-TextChild1', ev_name, mrg)
 
     def dump_family(self, family_handle, generation):
+        family = self.db.get_family_from_handle(family_handle)
+        family_toc_name = family_name(family, self.db)
+
         self.doc.start_paragraph('FGR-Title')
         if self.recursive and self.generations:
             title = self._("Family Group Report - Generation %d") % generation
@@ -613,9 +618,9 @@ class FamilyGroup(Report):
             title = self._("Family Group Report")
         mark = IndexMark(title, INDEX_TYPE_TOC, 1)
         self.doc.write_text(title, mark)
+        mark = IndexMark(family_toc_name, INDEX_TYPE_TOC, 2)
+        self.doc.write_text('', mark)
         self.doc.end_paragraph()
-
-        family = self.db.get_family_from_handle(family_handle)
 
         self.dump_parent(self._("Husband"), family.get_father_handle())
         self.doc.start_paragraph("FGR-blank")
@@ -655,14 +660,12 @@ class FamilyGroup(Report):
                         self.dump_family(child_family_handle, (generation+1))
 
     def write_report(self):
-        flist = self.db.get_family_handles(sort_handles=True)
+        flist = self.db.get_family_handles(sort_handles=True,
+                                           locale=self._locale)
         if not self.filter:
             fam_list = flist
         else:
-            with self._user.progress(_('Family Group Report'),
-                                     _('Applying filter...'),
-                                     self.db.get_number_of_families()) as step:
-                fam_list = self.filter.apply(self.db, flist, step)
+            fam_list = self.filter.apply(self.db, flist, user=self._user)
         if fam_list:
             with self._user.progress(_('Family Group Report'),
                                      _('Writing families'),
@@ -691,6 +694,7 @@ class FamilyGroupOptions(MenuReportOptions):
         self.__fid = None
         self.__filter = None
         self.__recursive = None
+        self.__generations = None
         self._nf = None
         MenuReportOptions.__init__(self, name, dbase)
 
@@ -716,6 +720,17 @@ class FamilyGroupOptions(MenuReportOptions):
         add_option("family_id", self.__fid)
         self.__fid.connect('value-changed', self.__update_filters)
 
+        self.__recursive = BooleanOption(_('Recursive (down)'), False)
+        self.__recursive.set_help(_("Create reports for all descendants "
+                                    "of this family."))
+        add_option("recursive", self.__recursive)
+        self.__recursive.connect('value-changed', self.__recursive_changed)
+
+        ##########################
+        category_name = _("Report Options (2)")
+        add_option = partial(menu.add_option, category_name)
+        ##########################
+
         self._nf = stdoptions.add_name_format_option(menu, category_name)
         self._nf.connect('value-changed', self.__update_filters)
 
@@ -725,26 +740,18 @@ class FamilyGroupOptions(MenuReportOptions):
 
         stdoptions.add_living_people_option(menu, category_name)
 
-        self.__recursive = BooleanOption(_('Recursive (down)'), False)
-        self.__recursive.set_help(_("Create reports for all descendants "
-                                    "of this family."))
-        add_option("recursive", self.__recursive)
+        locale_opt = stdoptions.add_localization_option(menu, category_name)
 
-        stdoptions.add_localization_option(menu, category_name)
+        stdoptions.add_date_format_option(menu, category_name, locale_opt)
 
         ##########################
         add_option = partial(menu.add_option, _("Include"))
         ##########################
 
-        gramps_ids = BooleanOption(_('Gramps ID'), False)
-        gramps_ids.set_help(_("Whether to include Gramps ID next to names."))
-        add_option("gramps_ids", gramps_ids)
-
-        generations = BooleanOption(_("Generation numbers "
-                                      "(recursive only)"), True)
-        generations.set_help(_("Whether to include the generation on each "
-                               "report (recursive only)."))
-        add_option("generations", generations)
+        inc_par_mar = BooleanOption(_("Parent Marriage"), True)
+        inc_par_mar.set_help(
+            _("Whether to include marriage information for parents."))
+        add_option("incParMar", inc_par_mar)
 
         inc_par_events = BooleanOption(_("Parent Events"), False)
         inc_par_events.set_help(_("Whether to include events for parents."))
@@ -767,10 +774,12 @@ class FamilyGroupOptions(MenuReportOptions):
             _("Whether to include alternate names for parents."))
         add_option("incParNames", inc_par_names)
 
-        inc_par_mar = BooleanOption(_("Parent Marriage"), True)
-        inc_par_mar.set_help(
-            _("Whether to include marriage information for parents."))
-        add_option("incParMar", inc_par_mar)
+        ##########################
+        category_name = _("Include (2)")
+        add_option = partial(menu.add_option, category_name)
+        ##########################
+
+        stdoptions.add_gramps_id_option(menu, category_name)
 
         inc_fam_notes = BooleanOption(_("Family Notes"), False)
         inc_fam_notes.set_help(_("Whether to include notes for families."))
@@ -786,9 +795,11 @@ class FamilyGroupOptions(MenuReportOptions):
             _("Whether to include marriage information for children."))
         add_option("incChiMar", inc_chi_mar)
 
-        ##########################
-        add_option = partial(menu.add_option, _("Missing Information"))
-        ##########################
+        self.__generations = BooleanOption(_("Generation numbers "
+                                             "(recursive only)"), False)
+        self.__generations.set_help(_("Whether to include the generation "
+                                      "on each report (recursive only)."))
+        add_option("generations", self.__generations)
 
         missinginfo = BooleanOption(_("Print fields for missing "
                                       "information"), True)
@@ -804,8 +815,8 @@ class FamilyGroupOptions(MenuReportOptions):
         family = self.__db.get_family_from_gramps_id(fid)
         nfv = self._nf.get_value()
         filter_list = utils.get_family_filters(self.__db, family,
-                                                     include_single=True,
-                                                     name_format=nfv)
+                                               include_single=True,
+                                               name_format=nfv)
         self.__filter.set_filters(filter_list)
 
     def __filter_changed(self):
@@ -814,10 +825,11 @@ class FamilyGroupOptions(MenuReportOptions):
         If the filter is not family-specific, disable the family option
         """
         filter_value = self.__filter.get_value()
-        if filter_value in [0, 2, 3]: # filters that rely on the center family
-            self.__fid.set_available(True)
-        else: # filters that don't
+        if filter_value == 1: # "Entire Database" (as "include_single=True")
             self.__fid.set_available(False)
+        else:
+            # The other filters need a center family (assume custom ones too)
+            self.__fid.set_available(True)
 
         # only allow recursion if the center family is the only family
         if self.__recursive and filter_value == 0:
@@ -825,6 +837,13 @@ class FamilyGroupOptions(MenuReportOptions):
         elif self.__recursive:
             self.__recursive.set_value(False)
             self.__recursive.set_available(False)
+
+    def __recursive_changed(self):
+        """
+        Handle recursive change.
+        """
+        recursive_value = self.__recursive.get_value()
+        self.__generations.set_available(recursive_value)
 
     def make_default_style(self, default_style):
         """Make default output style for the Family Group Report."""
@@ -843,7 +862,7 @@ class FamilyGroupOptions(MenuReportOptions):
         para.set_font(font)
         para.set_alignment(PARA_ALIGN_CENTER)
         para.set_header_level(1)
-        para.set_description(_("The style used for the title of the page."))
+        para.set_description(_("The style used for the title."))
         default_style.add_paragraph_style('FGR-Title', para)
 
         font = FontStyle()
@@ -900,12 +919,14 @@ class FamilyGroupOptions(MenuReportOptions):
         cell.set_padding(0.1)
         cell.set_bottom_border(1)
         cell.set_left_border(1)
+        cell.set_right_border(1) # for RTL
         default_style.add_cell_style('FGR-TextContents', cell)
 
         cell = TableCellStyle()
         cell.set_padding(0.1)
         cell.set_bottom_border(0)
         cell.set_left_border(1)
+        cell.set_right_border(1) # for RTL
         cell.set_padding(0.1)
         default_style.add_cell_style('FGR-TextChild1', cell)
 
@@ -913,6 +934,7 @@ class FamilyGroupOptions(MenuReportOptions):
         cell.set_padding(0.1)
         cell.set_bottom_border(1)
         cell.set_left_border(1)
+        cell.set_right_border(1) # for RTL
         cell.set_padding(0.1)
         default_style.add_cell_style('FGR-TextChild2', cell)
 

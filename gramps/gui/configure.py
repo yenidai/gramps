@@ -40,6 +40,7 @@ import collections
 from gi.repository import GObject
 from gi.repository import Gdk
 from gi.repository import Gtk
+from gi.repository import Pango
 
 #-------------------------------------------------------------------------
 #
@@ -101,9 +102,10 @@ class DisplayNameEditor(ManagedWindow):
         self.dialog = dialog
         self.dbstate = dbstate
         self.set_window(
-            Gtk.Dialog(_('Display Name Editor'),
-                       buttons=(_('_Close'), Gtk.ResponseType.CLOSE)),
+            Gtk.Dialog(title=_('Display Name Editor')),
             None, _('Display Name Editor'), None)
+        self.window.add_button(_('_Close'), Gtk.ResponseType.CLOSE)
+        self.setup_configs('interface.displaynameeditor', 820, 550)
         grid = self.dialog._build_custom_name_ui()
         label = Gtk.Label(label=_("""The following keywords are replaced with the appropriate name parts:<tt>
   <b>Given</b>   - given name (first name)     <b>Surname</b>  - surnames (with prefix and connectors)
@@ -126,7 +128,6 @@ UPPERCASE keyword forces uppercase. Extra parentheses, commas are removed. Other
         label.set_use_markup(True)
         self.window.vbox.pack_start(label, False, True, 0)
         self.window.vbox.pack_start(grid, True, True, 0)
-        self.window.set_default_size(600, 550)
         self.window.connect('response', self.close)
         self.show()
     def close(self, *obj):
@@ -175,9 +176,9 @@ class ConfigureDialog(ManagedWindow):
         self.__config = configmanager
         ManagedWindow.__init__(self, uistate, [], configobj)
         self.set_window(
-            Gtk.Dialog(dialogtitle,
-                       buttons=(_('_Close'), Gtk.ResponseType.CLOSE)),
+            Gtk.Dialog(title=dialogtitle),
                        None, dialogtitle, None)
+        self.window.add_button(_('_Close'), Gtk.ResponseType.CLOSE)
         self.panel = Gtk.Notebook()
         self.panel.set_scrollable(True)
         self.window.vbox.pack_start(self.panel, True, True, 0)
@@ -326,7 +327,7 @@ class ConfigureDialog(ManagedWindow):
         """
         if not config:
             config = self.__config
-        lwidget = BasicLabel("%s: " %label)
+        lwidget = BasicLabel(_("%s: ") % label) # needed for French, else ignore
         hbox = Gtk.Box()
         if path:
             entry.set_text(path)
@@ -350,7 +351,7 @@ class ConfigureDialog(ManagedWindow):
         if not callback:
             callback = self.update_entry
         if label:
-            lwidget = BasicLabel("%s: " % label)
+            lwidget = BasicLabel(_("%s: ") % label) # translators: for French
         entry = Gtk.Entry()
         if localized_config:
             entry.set_text(config.get(constant))
@@ -371,7 +372,7 @@ class ConfigureDialog(ManagedWindow):
         """
         if not config:
             config = self.__config
-        lwidget = BasicLabel("%s: " % label)
+        lwidget = BasicLabel(_("%s: ") % label) # needed for French, else ignore
         entry = Gtk.Entry()
         entry.set_text(str(config.get(constant)))
         entry.set_tooltip_markup(helptext)
@@ -384,7 +385,7 @@ class ConfigureDialog(ManagedWindow):
     def add_color(self, grid, label, index, constant, config=None, col=0):
         if not config:
             config = self.__config
-        lwidget = BasicLabel("%s: " % label)
+        lwidget = BasicLabel(_("%s: ") % label) # needed for French, else ignore
         hexval = config.get(constant)
         color = Gdk.color_parse(hexval)
         entry = Gtk.ColorButton(color=color)
@@ -409,7 +410,7 @@ class ConfigureDialog(ManagedWindow):
             config = self.__config
         if not callback:
             callback = self.update_combo
-        lwidget = BasicLabel("%s: " % label)
+        lwidget = BasicLabel(_("%s: ") % label) # needed for French, else ignore
         store = Gtk.ListStore(int, str)
         for item in opts:
             store.append(item)
@@ -446,7 +447,7 @@ class ConfigureDialog(ManagedWindow):
             config = self.__config
         if not callback:
             callback = self.update_slider
-        lwidget = BasicLabel("%s: " % label)
+        lwidget = BasicLabel(_("%s: ") % label) # needed for French, else ignore
         adj = Gtk.Adjustment(value=config.get(constant), lower=range[0],
                              upper=range[1], step_increment=1,
                              page_increment=0, page_size=0)
@@ -468,7 +469,7 @@ class ConfigureDialog(ManagedWindow):
             config = self.__config
         if not callback:
             callback = self.update_spinner
-        lwidget = BasicLabel("%s: " % label)
+        lwidget = BasicLabel(_("%s: ") % label) # needed for French, else ignore
         adj = Gtk.Adjustment(value=config.get(constant), lower=range[0],
                              upper=range[1], step_increment=1,
                              page_increment=0, page_size=0)
@@ -502,14 +503,16 @@ class GrampsPreferences(ConfigureDialog):
         ConfigureDialog.__init__(self, uistate, dbstate, page_funcs,
                                  GrampsPreferences, config,
                                  on_close=update_constants)
+        self.setup_configs('interface.grampspreferences', 700, 450)
 
     def add_researcher_panel(self, configdialog):
         grid = Gtk.Grid()
         grid.set_border_width(12)
         grid.set_column_spacing(6)
         grid.set_row_spacing(6)
-        self.add_text(grid, _('Enter your information so people can contact you when you'
-                        ' distribute your Family Tree'), 0, line_wrap=False)
+        self.add_text(grid, _('Enter your information so people can contact '
+                              'you when you distribute your Family Tree'),
+                      0, line_wrap=True)
         self.add_entry(grid, _('Name'), 1, 'researcher.researcher-name')
         self.add_entry(grid, _('Address'), 2, 'researcher.researcher-addr')
         self.add_entry(grid, _('Locality'), 3, 'researcher.researcher-locality')
@@ -814,7 +817,7 @@ class GrampsPreferences(ConfigureDialog):
         grid.set_row_spacing(6)
 
         # make a treeview for listing all the name formats
-        format_tree = Gtk.TreeView(self.fmt_model)
+        format_tree = Gtk.TreeView(model=self.fmt_model)
         name_renderer = Gtk.CellRendererText()
         name_column = Gtk.TreeViewColumn(_('Format'),
                                          name_renderer,
@@ -967,6 +970,7 @@ class GrampsPreferences(ConfigureDialog):
         # set up the combo to choose the preset format
         self.fmt_obox = Gtk.ComboBox()
         cell = Gtk.CellRendererText()
+        cell.set_property('ellipsize', Pango.EllipsizeMode.END)
         self.fmt_obox.pack_start(cell, True)
         self.fmt_obox.add_attribute(cell, 'text', 1)
         self.fmt_obox.set_model(self.fmt_model)
@@ -974,11 +978,11 @@ class GrampsPreferences(ConfigureDialog):
         self.fmt_obox.set_active(active)
         self.fmt_obox.connect('changed', self.cb_name_changed)
         # label for the combo
-        lwidget = BasicLabel("%s: " % _('Name format'))
+        lwidget = BasicLabel(_("%s: ") % _('Name format'))
         lwidget.set_use_underline(True)
         lwidget.set_mnemonic_widget(self.fmt_obox)
         hbox = Gtk.Box()
-        btn = Gtk.Button("%s..." % _('Edit') )
+        btn = Gtk.Button(label=("%s..." % _('Edit')))
         btn.connect('clicked', self.cb_name_dialog)
         hbox.pack_start(self.fmt_obox, True, True, 0)
         hbox.pack_start(btn, False, False, 0)
@@ -1002,7 +1006,7 @@ class GrampsPreferences(ConfigureDialog):
             active = 0
         obox.set_active(active)
         obox.connect('changed', self.date_format_changed)
-        lwidget = BasicLabel("%s: " % _('Date format'))
+        lwidget = BasicLabel(_("%s: ") % _('Date format'))
         grid.attach(lwidget, 0, row, 1, 1)
         grid.attach(obox, 1, row, 2, 1)
         row += 1
@@ -1023,7 +1027,7 @@ class GrampsPreferences(ConfigureDialog):
         obox.connect('changed',
                      lambda obj: config.set('preferences.age-display-precision',
                                             obj.get_active() + 1))
-        lwidget = BasicLabel("%s: "
+        lwidget = BasicLabel(_("%s: ")
                              % _('Age display precision (requires restart)'))
         grid.attach(lwidget, 0, row, 1, 1)
         grid.attach(obox, 1, row, 2, 1)
@@ -1037,7 +1041,7 @@ class GrampsPreferences(ConfigureDialog):
             active = 0
         obox.set_active(active)
         obox.connect('changed', self.date_calendar_changed)
-        lwidget = BasicLabel("%s: " % _('Calendar on reports'))
+        lwidget = BasicLabel(_("%s: ") % _('Calendar on reports'))
         grid.attach(lwidget, 0, row, 1, 1)
         grid.attach(obox, 1, row, 2, 1)
         row += 1
@@ -1050,7 +1054,7 @@ class GrampsPreferences(ConfigureDialog):
         obox.connect('changed',
                      lambda obj: config.set('behavior.surname-guessing',
                                             obj.get_active()))
-        lwidget = BasicLabel("%s: " % _('Surname guessing'))
+        lwidget = BasicLabel(_("%s: ") % _('Surname guessing'))
         grid.attach(lwidget, 0, row, 1, 1)
         grid.attach(obox, 1, row, 2, 1)
         row += 1
@@ -1063,7 +1067,7 @@ class GrampsPreferences(ConfigureDialog):
         obox.connect('changed',
                      lambda obj: config.set('preferences.family-relation-type',
                                             obj.get_active()))
-        lwidget = BasicLabel("%s: " % _('Default family relationship'))
+        lwidget = BasicLabel(_("%s: ") % _('Default family relationship'))
         grid.attach(lwidget, 0, row, 1, 1)
         grid.attach(obox, 1, row, 2, 1)
         row += 1
@@ -1087,7 +1091,7 @@ class GrampsPreferences(ConfigureDialog):
             obox.set_active(1)
         obox.connect('changed',
                      lambda obj: config.set('interface.statusbar', 2*obj.get_active()))
-        lwidget = BasicLabel("%s: " % _('Status bar'))
+        lwidget = BasicLabel(_("%s: ") % _('Status bar'))
         grid.attach(lwidget, 0, row, 1, 1)
         grid.attach(obox, 1, row, 2, 1)
         row += 1
@@ -1144,7 +1148,7 @@ class GrampsPreferences(ConfigureDialog):
         active = config.get('preferences.place-restrict')
         obox.set_active(active)
         obox.connect('changed', self.place_restrict_changed)
-        lwidget = BasicLabel("%s: " % _('Restrict'))
+        lwidget = BasicLabel(_("%s: ") % _('Restrict'))
         grid2.attach(lwidget, 0, row, 1, 1)
         grid2.attach(obox, 1, row, 2, 1)
         self.place_widgets.append(obox)
@@ -1204,15 +1208,15 @@ class GrampsPreferences(ConfigureDialog):
     def check_for_type_changed(self, obj):
         active = obj.get_active()
         if active == 0:  # update
-            config.set('behavior.check-for-update-types', ["update"])
+            config.set('behavior.check-for-addon-update-types', ["update"])
         elif active == 1:  # update
-            config.set('behavior.check-for-update-types', ["new"])
+            config.set('behavior.check-for-addon-update-types', ["new"])
         elif active == 2:  # update
-            config.set('behavior.check-for-update-types', ["update", "new"])
+            config.set('behavior.check-for-addon-update-types', ["update", "new"])
 
     def toggle_hide_previous_addons(self, obj):
         active = obj.get_active()
-        config.set('behavior.do-not-show-previously-seen-updates',
+        config.set('behavior.do-not-show-previously-seen-addon-updates',
                    bool(active))
 
     def toggle_tag_on_import(self, obj):
@@ -1222,7 +1226,7 @@ class GrampsPreferences(ConfigureDialog):
 
     def check_for_updates_changed(self, obj):
         active = obj.get_active()
-        config.set('behavior.check-for-updates', active)
+        config.set('behavior.check-for-addon-updates', active)
 
     def place_restrict_changed(self, obj):
         active = obj.get_active()
@@ -1237,6 +1241,11 @@ class GrampsPreferences(ConfigureDialog):
 
     def date_calendar_changed(self, obj):
         config.set('preferences.calendar-format-report', obj.get_active())
+
+    def autobackup_changed(self, obj):
+        active = obj.get_active()
+        config.set('database.autobackup', active)
+        self.uistate.set_backup_timer()
 
     def add_date_panel(self, configdialog):
         grid = Gtk.Grid()
@@ -1352,7 +1361,7 @@ class GrampsPreferences(ConfigureDialog):
                 self.set_mediapath, self.select_mediapath)
 
         current_line += 1
-        # Check for updates:
+        # Check for addon updates:
         obox = Gtk.ComboBoxText()
         formats = [_("Never"),
                    _("Once a month"),
@@ -1360,10 +1369,10 @@ class GrampsPreferences(ConfigureDialog):
                    _("Once a day"),
                    _("Always"), ]
         list(map(obox.append_text, formats))
-        active = config.get('behavior.check-for-updates')
+        active = config.get('behavior.check-for-addon-updates')
         obox.set_active(active)
         obox.connect('changed', self.check_for_updates_changed)
-        lwidget = BasicLabel("%s: " % _('Check for updates'))
+        lwidget = BasicLabel(_("%s: ") % _('Check for addon updates'))
         grid.attach(lwidget, 1, current_line, 1, 1)
         grid.attach(obox, 2, current_line, 1, 1)
 
@@ -1373,7 +1382,7 @@ class GrampsPreferences(ConfigureDialog):
                    _("New addons only"),
                    _("New and updated addons"),]
         list(map(self.whattype_box.append_text, formats))
-        whattype = config.get('behavior.check-for-update-types')
+        whattype = config.get('behavior.check-for-addon-update-types')
         if "new" in whattype and "update" in whattype:
             self.whattype_box.set_active(2)
         elif "new" in whattype:
@@ -1381,7 +1390,7 @@ class GrampsPreferences(ConfigureDialog):
         elif "update" in whattype:
             self.whattype_box.set_active(0)
         self.whattype_box.connect('changed', self.check_for_type_changed)
-        lwidget = BasicLabel("%s: " % _('What to check'))
+        lwidget = BasicLabel(_("%s: ") % _('What to check'))
         grid.attach(lwidget, 1, current_line, 1, 1)
         grid.attach(self.whattype_box, 2, current_line, 1, 1)
 
@@ -1391,11 +1400,11 @@ class GrampsPreferences(ConfigureDialog):
         current_line += 1
         checkbutton = Gtk.CheckButton(
             label=_("Do not ask about previously notified addons"))
-        checkbutton.set_active(config.get('behavior.do-not-show-previously-seen-updates'))
+        checkbutton.set_active(config.get('behavior.do-not-show-previously-seen-addon-updates'))
         checkbutton.connect("toggled", self.toggle_hide_previous_addons)
 
         grid.attach(checkbutton, 1, current_line, 1, 1)
-        button = Gtk.Button(label=_("Check now"))
+        button = Gtk.Button(label=_("Check for updated addons now"))
         button.connect("clicked", self.check_for_updates)
         grid.attach(button, 3, current_line, 1, 1)
 
@@ -1412,9 +1421,12 @@ class GrampsPreferences(ConfigureDialog):
             return
 
         if len(addon_update_list) > 0:
-            PluginWindows.UpdateAddons(addon_update_list, self.window)
+            rescan = PluginWindows.UpdateAddons(self.uistate, self.track,
+                                                addon_update_list).rescan
+            self.uistate.viewmanager.do_reg_plugins(self.dbstate, self.uistate,
+                                                    rescan=rescan)
         else:
-            check_types = config.get('behavior.check-for-update-types')
+            check_types = config.get('behavior.check-for-addon-update-types')
             OkDialog(
                 _("There are no available addons of this type"),
                 _("Checked for '%s'") %
@@ -1425,7 +1437,6 @@ class GrampsPreferences(ConfigureDialog):
         # Dead code for l10n
         _('new'), _('update')
 
-        self.uistate.viewmanager.do_reg_plugins(self.dbstate, self.uistate)
 
     def database_backend_changed(self, obj):
         the_list = obj.get_model()
@@ -1442,7 +1453,7 @@ class GrampsPreferences(ConfigureDialog):
         current_line = 0
 
         if __debug__:
-            lwidget = BasicLabel("%s: " % _('Database backend'))
+            lwidget = BasicLabel(_("%s: ") % _('Database backend'))
             grid.attach(lwidget, 1, current_line, 1, 1)
             obox = self.__create_backend_combo()
             grid.attach(obox, 2, current_line, 1, 1)
@@ -1462,6 +1473,33 @@ class GrampsPreferences(ConfigureDialog):
                 _('Automatically load last Family Tree'),
                 current_line, 'behavior.autoload')
         current_line += 1
+
+        self.backup_path_entry = Gtk.Entry()
+        self.add_path_box(grid,
+                _('Backup path'),
+                current_line, self.backup_path_entry,
+                config.get('database.backup-path'),
+                self.set_backup_path, self.select_backup_path)
+        current_line += 1
+
+        self.add_checkbox(grid,
+                _('Backup on exit'),
+                current_line, 'database.backup-on-exit')
+        current_line += 1
+
+        # Check for updates:
+        obox = Gtk.ComboBoxText()
+        formats = [_("Never"),
+                   _("Every 15 minutes"),
+                   _("Every 30 minutes"),
+                   _("Every hour")]
+        list(map(obox.append_text, formats))
+        active = config.get('database.autobackup')
+        obox.set_active(active)
+        obox.connect('changed', self.autobackup_changed)
+        lwidget = BasicLabel(_("%s: ") % _('Autobackup'))
+        grid.attach(lwidget, 1, current_line, 1, 1)
+        grid.attach(obox, 2, current_line, 1, 1)
 
         return _('Family Tree'), grid
 
@@ -1523,13 +1561,10 @@ class GrampsPreferences(ConfigureDialog):
 
     def select_dbpath(self, *obj):
         f = Gtk.FileChooserDialog(title=_("Select database directory"),
-                                    parent=self.window,
-                                    action=Gtk.FileChooserAction.SELECT_FOLDER,
-                                    buttons=(_('_Cancel'),
-                                                Gtk.ResponseType.CANCEL,
-                                                _('_Apply'),
-                                                Gtk.ResponseType.OK)
-                                    )
+                                  transient_for=self.window,
+                                  action=Gtk.FileChooserAction.SELECT_FOLDER)
+        f.add_buttons(_('_Cancel'), Gtk.ResponseType.CANCEL,
+                      _('_Apply'), Gtk.ResponseType.OK)
         dbpath = config.get('database.path')
         if not dbpath:
             dbpath = os.path.join(HOME_DIR,'grampsdb')
@@ -1540,6 +1575,31 @@ class GrampsPreferences(ConfigureDialog):
             val = f.get_filename()
             if val:
                 self.dbpath_entry.set_text(val)
+        f.destroy()
+
+    def set_backup_path(self, *obj):
+        path = self.backup_path_entry.get_text().strip()
+        config.set('database.backup-path', path)
+
+    def select_backup_path(self, *obj):
+        f = Gtk.FileChooserDialog(title=_("Select backup directory"),
+                                    parent=self.window,
+                                    action=Gtk.FileChooserAction.SELECT_FOLDER,
+                                    buttons=(_('_Cancel'),
+                                                Gtk.ResponseType.CANCEL,
+                                                _('_Apply'),
+                                                Gtk.ResponseType.OK)
+                                    )
+        backup_path = config.get('database.backup-path')
+        if not backup_path:
+            backup_path = config.get('database.path')
+        f.set_current_folder(os.path.dirname(backup_path))
+
+        status = f.run()
+        if status == Gtk.ResponseType.OK:
+            val = f.get_filename()
+            if val:
+                self.backup_path_entry.set_text(val)
         f.destroy()
 
     def update_idformat_entry(self, obj, constant):

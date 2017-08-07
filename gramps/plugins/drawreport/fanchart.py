@@ -154,7 +154,7 @@ class FanChart(Report):
 
         The arguments are:
 
-        database     - the GRAMPS database instance
+        database     - the Gramps database instance
         options      - instance of the Options class for this report
         user         - a gen.user.User instance
 
@@ -176,11 +176,10 @@ class FanChart(Report):
 
         menu = options.menu
 
-        lang = options.menu.get_option_by_name('trans').get_value()
-        rlocale = self.set_locale(lang)
+        self.set_locale(options.menu.get_option_by_name('trans').get_value())
 
         stdoptions.run_private_data_option(self, menu)
-        stdoptions.run_living_people_option(self, menu, rlocale)
+        stdoptions.run_living_people_option(self, menu, self._locale)
         self.database = CacheProxyDb(self.database)
 
         self.max_generations = menu.get_option_by_name('maxgen').get_value()
@@ -689,10 +688,6 @@ class FanChartOptions(MenuReportOptions):
         self.__pid.set_help(_("The center person for the report"))
         menu.add_option(category_name, "pid", self.__pid)
 
-        stdoptions.add_private_data_option(menu, category_name)
-
-        stdoptions.add_living_people_option(menu, category_name)
-
         max_gen = NumberOption(_("Generations"), 5, 1, self.max_generations)
         max_gen.set_help(_("The number of generations "
                            "to include in the report"))
@@ -730,6 +725,12 @@ class FanChartOptions(MenuReportOptions):
                               "for each generation in the style editor"))
         menu.add_option(category_name, "same_style", same_style)
 
+        category_name = _("Report Options (2)")
+
+        stdoptions.add_private_data_option(menu, category_name)
+
+        stdoptions.add_living_people_option(menu, category_name)
+
         stdoptions.add_localization_option(menu, category_name)
 
     def make_default_style(self, default_style):
@@ -765,7 +766,7 @@ class FanChartOptions(MenuReportOptions):
         p_style.set_font(f_style)
         p_style.set_alignment(PARA_ALIGN_CENTER)
         p_style.set_description(
-            _('The basic style used for the default text display.'))
+            _('The basic style used for the text display.'))
         default_style.add_paragraph_style("FC-Text", p_style)
 
         for i in range(0, self.max_generations):

@@ -4,6 +4,7 @@
 # Copyright (C) 2000-2006  Donald N. Allingham
 # Copyright (C) 2010       Michiel D. Nauta
 # Copyright (C) 2013       Doug Blank <doug.blank@gmail.com>
+# Copyright (C) 2017       Nick Hall
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -32,6 +33,8 @@ Location class for Gramps.
 from .secondaryobj import SecondaryObject
 from .locationbase import LocationBase
 from .const import IDENTICAL, DIFFERENT
+from ..const import GRAMPS_LOCALE as glocale
+_ = glocale.translation.gettext
 
 #-------------------------------------------------------------------------
 #
@@ -63,55 +66,6 @@ class Location(SecondaryObject, LocationBase):
         """
         return (LocationBase.serialize(self), self.parish)
 
-    def to_struct(self):
-        """
-        Convert the data held in this object to a structure (eg,
-        struct) that represents all the data elements.
-
-        This method is used to recursively convert the object into a
-        self-documenting form that can easily be used for various
-        purposes, including diffs and queries.
-
-        These structures may be primitive Python types (string,
-        integer, boolean, etc.) or complex Python types (lists,
-        tuples, or dicts). If the return type is a dict, then the keys
-        of the dict match the fieldname of the object. If the return
-        struct (or value of a dict key) is a list, then it is a list
-        of structs. Otherwise, the struct is just the value of the
-        attribute.
-
-        :returns: Returns a struct containing the data of the object.
-        :rtype: dict
-        """
-        return {"_class": "Location",
-                "street": self.street,
-                "locality": self.locality,
-                "city": self.city,
-                "county": self.county,
-                "state": self.state,
-                "country": self.country,
-                "postal": self.postal,
-                "phone": self.phone,
-                "parish": self.parish}
-
-    @classmethod
-    def from_struct(cls, struct):
-        """
-        Given a struct data representation, return a serialized object.
-
-        :returns: Returns a serialized object
-        """
-        default = Location()
-        return ((struct.get("street", default.street),
-                 struct.get("locality", default.locality),
-                 struct.get("city", default.city),
-                 struct.get("country", default.country),
-                 struct.get("state", default.state),
-                 struct.get("country", default.country),
-                 struct.get("postal", default.postal),
-                 struct.get("phone", default.phone)),
-                struct.get("parish", default.parish))
-
     def unserialize(self, data):
         """
         Convert a serialized tuple of data to an object.
@@ -119,6 +73,40 @@ class Location(SecondaryObject, LocationBase):
         (lbase, self.parish) = data
         LocationBase.unserialize(self, lbase)
         return self
+
+    @classmethod
+    def get_schema(cls):
+        """
+        Returns the JSON Schema for this class.
+
+        :returns: Returns a dict containing the schema.
+        :rtype: dict
+        """
+        return {
+            "type": "object",
+            "title": _("Location"),
+            "properties": {
+                "_class": {"enum": [cls.__name__]},
+                "street": {"type": "string",
+                           "title": _("Street")},
+                "locality": {"type": "string",
+                             "title": _("Locality")},
+                "city": {"type": "string",
+                         "title": _("City")},
+                "county": {"type": "string",
+                           "title": _("County")},
+                "state": {"type": "string",
+                          "title": _("State")},
+                "country": {"type": "string",
+                            "title": _("Country")},
+                "postal": {"type": "string",
+                           "title": _("Postal Code")},
+                "phone": {"type": "string",
+                          "title": _("Phone")},
+                "parish": {"type": "string",
+                           "title": _("Parish")}
+            }
+        }
 
     def get_text_data_list(self):
         """

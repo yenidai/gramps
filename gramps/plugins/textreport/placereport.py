@@ -61,7 +61,7 @@ class PlaceReport(Report):
 
         The arguments are:
 
-        database        - the GRAMPS database instance
+        database        - the Gramps database instance
         options         - instance of the Options class for this report
         user            - instance of a gen.user.User class
 
@@ -81,11 +81,13 @@ class PlaceReport(Report):
         self._user = user
         menu = options.menu
 
-        lang = menu.get_option_by_name('trans').get_value()
-        rlocale = self.set_locale(lang)
+        self.set_locale(menu.get_option_by_name('trans').get_value())
+
+        stdoptions.run_date_format_option(self, menu)
 
         stdoptions.run_private_data_option(self, menu)
-        living_opt = stdoptions.run_living_people_option(self, menu, rlocale)
+        living_opt = stdoptions.run_living_people_option(self, menu,
+                                                         self._locale)
         self.database = CacheProxyDb(self.database)
         self._db = self.database
 
@@ -112,7 +114,8 @@ class PlaceReport(Report):
         if self.filter.get_name() != '':
             # Use the selected filter to provide a list of place handles
             plist = self._db.iter_place_handles()
-            self.place_handles = self.filter.apply(self._db, plist)
+            self.place_handles = self.filter.apply(self._db, plist,
+                                                   user=self._user)
 
         if places:
             # Add places selected individually
@@ -447,18 +450,22 @@ class PlaceOptions(MenuReportOptions):
         self.__places.set_help(_("List of places to report on"))
         menu.add_option(category_name, "places", self.__places)
 
-        stdoptions.add_private_data_option(menu, category_name)
-
-        stdoptions.add_living_people_option(menu, category_name)
-
-        stdoptions.add_name_format_option(menu, category_name)
-
         center = EnumeratedListOption(_("Center on"), "Event")
         center.set_items([("Event", _("Event")), ("Person", _("Person"))])
         center.set_help(_("If report is event or person centered"))
         menu.add_option(category_name, "center", center)
 
-        stdoptions.add_localization_option(menu, category_name)
+        category_name = _("Report Options (2)")
+
+        stdoptions.add_name_format_option(menu, category_name)
+
+        stdoptions.add_private_data_option(menu, category_name)
+
+        stdoptions.add_living_people_option(menu, category_name)
+
+        locale_opt = stdoptions.add_localization_option(menu, category_name)
+
+        stdoptions.add_date_format_option(menu, category_name, locale_opt)
 
     def make_default_style(self, default_style):
         """
@@ -488,7 +495,7 @@ class PlaceOptions(MenuReportOptions):
         para.set_top_margin(0.25)
         para.set_bottom_margin(0.25)
         para.set_alignment(PARA_ALIGN_CENTER)
-        para.set_description(_('The style used for the title of the report.'))
+        para.set_description(_('The style used for the title.'))
         self.default_style.add_paragraph_style("PLC-ReportTitle", para)
 
     def __report_subtitle_style(self):
@@ -517,7 +524,7 @@ class PlaceOptions(MenuReportOptions):
         para.set(first_indent=-1.5, lmargin=1.5)
         para.set_top_margin(0.75)
         para.set_bottom_margin(0.25)
-        para.set_description(_('The style used for place title.'))
+        para.set_description(_('The style used for the section headers.'))
         self.default_style.add_paragraph_style("PLC-PlaceTitle", para)
 
     def __place_details_style(self):
@@ -529,7 +536,7 @@ class PlaceOptions(MenuReportOptions):
         para = ParagraphStyle()
         para.set_font(font)
         para.set(first_indent=0.0, lmargin=1.5)
-        para.set_description(_('The style used for place details.'))
+        para.set_description(_('The style used for details.'))
         self.default_style.add_paragraph_style("PLC-PlaceDetails", para)
 
     def __column_title_style(self):
@@ -541,7 +548,7 @@ class PlaceOptions(MenuReportOptions):
         para = ParagraphStyle()
         para.set_font(font)
         para.set(first_indent=0.0, lmargin=0.0)
-        para.set_description(_('The style used for a column title.'))
+        para.set_description(_('The basic style used for table headings.'))
         self.default_style.add_paragraph_style("PLC-ColumnTitle", para)
 
     def __section_style(self):
@@ -555,7 +562,7 @@ class PlaceOptions(MenuReportOptions):
         para.set(first_indent=-1.5, lmargin=1.5)
         para.set_top_margin(0.5)
         para.set_bottom_margin(0.25)
-        para.set_description(_('The style used for each section.'))
+        para.set_description(_('The basic style used for the text display.'))
         self.default_style.add_paragraph_style("PLC-Section", para)
 
     def __event_table_style(self):
@@ -586,7 +593,7 @@ class PlaceOptions(MenuReportOptions):
         font.set(face=FONT_SERIF, size=10)
         para = ParagraphStyle()
         para.set_font(font)
-        para.set_description(_('The style used for event and person details.'))
+        para.set_description(_('The style used for the items and values.'))
         self.default_style.add_paragraph_style("PLC-Details", para)
 
     def __cell_style(self):

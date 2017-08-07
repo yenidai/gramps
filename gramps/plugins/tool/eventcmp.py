@@ -124,7 +124,7 @@ class EventComparison(tool.Tool,ManagedWindow):
         ManagedWindow.__init__(self, uistate, [], self)
         self.qual = 0
 
-        self.filterDialog = Glade(toplevel="filters")
+        self.filterDialog = Glade(toplevel="filters", also_load=["liststore1"])
         self.filterDialog.connect_signals({
             "on_apply_clicked"       : self.on_apply_clicked,
             "on_editor_clicked"      : self.filter_editor_clicked,
@@ -138,6 +138,7 @@ class EventComparison(tool.Tool,ManagedWindow):
         self.label = _('Event comparison filter selection')
         self.set_window(window,self.filterDialog.get_object('title'),
                         self.label)
+        self.setup_configs('interface.eventcomparison', 640, 220)
 
         self.on_filters_changed('Person')
         uistate.connect('filters-changed', self.on_filters_changed)
@@ -160,7 +161,7 @@ class EventComparison(tool.Tool,ManagedWindow):
             self.filters.set_active(0)
 
     def on_help_clicked(self, obj):
-        """Display the relevant portion of GRAMPS manual"""
+        """Display the relevant portion of Gramps manual"""
         display_help(webpage=WIKI_HELP_PAGE, section=WIKI_HELP_SEC)
 
     def build_menu_names(self, obj):
@@ -193,7 +194,7 @@ class EventComparison(tool.Tool,ManagedWindow):
             WarningDialog(_("No matches were found"),
                           parent=self.window)
         else:
-            DisplayChart(self.dbstate,self.uistate,plist,self.track)
+            EventComparisonResults(self.dbstate, self.uistate, plist, self.track)
 
 #-------------------------------------------------------------------------
 #
@@ -217,7 +218,7 @@ def fix(line):
 #
 #
 #-------------------------------------------------------------------------
-class DisplayChart(ManagedWindow):
+class EventComparisonResults(ManagedWindow):
     def __init__(self,dbstate,uistate,people_list,track):
         self.dbstate = dbstate
         self.uistate = uistate
@@ -229,7 +230,7 @@ class DisplayChart(ManagedWindow):
         self.row_data = []
         self.save_form = None
 
-        self.topDialog = Glade()
+        self.topDialog = Glade(toplevel="eventcmp")
         self.topDialog.connect_signals({
             "on_write_table"        : self.on_write_table,
             "destroy_passed_object" : self.close,
@@ -241,6 +242,7 @@ class DisplayChart(ManagedWindow):
         window = self.topDialog.toplevel
         self.set_window(window, self.topDialog.get_object('title'),
                         _('Event Comparison Results'))
+        self.setup_configs('interface.eventcomparisonresults', 750, 400)
 
         self.eventlist = self.topDialog.get_object('treeview')
         self.sort = Sort(self.db)
@@ -269,7 +271,7 @@ class DisplayChart(ManagedWindow):
         pass
 
     def on_help_clicked(self, obj):
-        """Display the relevant portion of GRAMPS manual"""
+        """Display the relevant portion of Gramps manual"""
         display_help(webpage=WIKI_HELP_PAGE, section=WIKI_HELP_SEC)
 
     def build_menu_names(self, obj):
@@ -307,7 +309,7 @@ class DisplayChart(ManagedWindow):
 
     def build_row_data(self):
         self.progress_bar = ProgressMeter(
-            _('Comparing Events'), '', parent=self.window)
+            _('Comparing Events'), '', parent=self.uistate.window)
         self.progress_bar.set_pass(_('Building data'),len(self.my_list))
         for individual_id in self.my_list:
             individual = self.db.get_person_from_handle(individual_id)

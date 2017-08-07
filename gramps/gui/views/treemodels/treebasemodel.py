@@ -53,6 +53,7 @@ from gi.repository import Gtk
 from gramps.gen.const import GRAMPS_LOCALE as glocale
 _ = glocale.translation.gettext
 import gramps.gui.widgets.progressdialog as progressdlg
+from ...user import User
 from bisect import bisect_right
 from gramps.gen.filters import SearchFilter, ExactSearchFilter
 from .basemodel import BaseModel
@@ -274,15 +275,13 @@ class TreeBaseModel(GObject.GObject, Gtk.TreeModel, BaseModel):
                       secondary object type.
     """
 
-    def __init__(self, db,
-                    search=None, skip=set(),
-                    scol=0, order=Gtk.SortType.ASCENDING, sort_map=None,
-                    nrgroups = 1,
-                    group_can_have_handle = False,
-                    has_secondary=False):
+    def __init__(self, db, uistate, search=None, skip=set(), scol=0,
+                 order=Gtk.SortType.ASCENDING, sort_map=None, nrgroups = 1,
+                 group_can_have_handle = False, has_secondary=False):
         cput = time.clock()
         GObject.GObject.__init__(self)
         BaseModel.__init__(self)
+
         #We create a stamp to recognize invalid iterators. From the docs:
         #Set the stamp to be equal to your model's stamp, to mark the
         #iterator as valid. When your model's structure changes, you should
@@ -294,12 +293,14 @@ class TreeBaseModel(GObject.GObject, Gtk.TreeModel, BaseModel):
         self.prev_handle = None
         self.prev_data = None
 
+        self.uistate = uistate
         self.__reverse = (order == Gtk.SortType.DESCENDING)
         self.scol = scol
         self.nrgroups = nrgroups
         self.group_can_have_handle = group_can_have_handle
         self.has_secondary = has_secondary
         self.db = db
+        self.dont_change_active = False
 
         self._set_base_data()
 
@@ -528,28 +529,22 @@ class TreeBaseModel(GObject.GObject, Gtk.TreeModel, BaseModel):
         Rebuild the data map for a single Gramps object type, where a search
         condition is applied.
         """
-        pmon = progressdlg.ProgressMonitor(progressdlg.GtkProgressDialog,
-                                            popup_time=2)
-        status = progressdlg.LongOpStatus(msg=_("Building View"),
-                            total_steps=items, interval=items//20,
-                            can_cancel=True)
+        pmon = progressdlg.ProgressMonitor(
+            progressdlg.StatusProgress, (self.uistate,), popup_time=2,
+            title=_("Loading items..."))
+        status = progressdlg.LongOpStatus(total_steps=items,
+                                          interval=items // 20)
         pmon.add_op(status)
         with gen_cursor() as cursor:
             for handle, data in cursor:
-                # for python3 this returns a byte object, so conversion needed
-                if not isinstance(handle, str):
-                    handle = handle.decode('utf-8')
                 status.heartbeat()
-                if status.should_cancel():
-                    break
                 self.__total += 1
                 if not (handle in skip or (dfilter and not
                                         dfilter.match(handle, self.db))):
                     _LOG.debug("    add %s %s" % (handle, data))
                     self.__displayed += 1
                     add_func(handle, data)
-        if not status.was_cancelled():
-            status.end()
+        status.end()
 
     def _rebuild_filter(self, dfilter, dfilter2, skip):
         """
@@ -579,28 +574,30 @@ class TreeBaseModel(GObject.GObject, Gtk.TreeModel, BaseModel):
         Rebuild the data map for a single Gramps object type, where a filter
         is applied.
         """
-        pmon = progressdlg.ProgressMonitor(progressdlg.GtkProgressDialog,
-                                            popup_time=2)
-        status = progressdlg.LongOpStatus(msg=_("Building View"),
-                              total_steps=3, interval=1)
-        pmon.add_op(status)
-        status_ppl = progressdlg.LongOpStatus(msg=_("Loading items..."),
-                        total_steps=items, interval=items//10)
+        pmon = progressdlg.ProgressMonitor(
+            progressdlg.StatusProgress, (self.uistate,), popup_time=2,
+            title=_("Loading items..."))
+        status_ppl = progressdlg.LongOpStatus(total_steps=items,
+                                              interval=items // 20)
         pmon.add_op(status_ppl)
 
         self.__total += items
-
-        with gen_cursor() as cursor:
-            for handle, data in cursor:
-                if not isinstance(handle, str):
-                    handle = handle.decode('utf-8')
+        assert not skip
+        if dfilter:
+            for handle in dfilter.apply(self.db,
+                                        user=User(parent=self.uistate.window)):
                 status_ppl.heartbeat()
-                if not handle in skip:
-                    if not dfilter or dfilter.match(handle, self.db):
-                        add_func(handle, data)
-                        self.__displayed += 1
+                data = data_map(handle)
+                add_func(handle, data)
+                self.__displayed += 1
+        else:
+            with gen_cursor() as cursor:
+                for handle, data in cursor:
+                    status_ppl.heartbeat()
+                    add_func(handle, data)
+                    self.__displayed += 1
+
         status_ppl.end()
-        status.end()
 
     def add_node(self, parent, child, sortkey, handle, add_parent=True,
                  secondary=False):
@@ -796,17 +793,25 @@ class TreeBaseModel(GObject.GObject, Gtk.TreeModel, BaseModel):
     def update_row_by_handle(self, handle):
         """
         Update a row in the model.
+
+        We have to do delete/add because sometimes row position changes when
+        object name changes.
+        A delete action causes the listview module to set a prior row to
+        active.  In some cases (merge) the prior row may have been already
+        removed from the db.  To avoid invalid handle exceptions in gramplets
+        at the change active, we tell listview not to change active.
+        The add_row below changes to current active again so we end up in right
+        place.
         """
         assert isinstance(handle, str)
         self.clear_cache(handle)
         if self._get_node(handle) is None:
-            return # row not currently displayed
+            return  # row not currently displayed
 
+        self.dont_change_active = True
         self.delete_row_by_handle(handle)
+        self.dont_change_active = False
         self.add_row_by_handle(handle)
-
-        # If the node hasn't moved, all we need is to call row_changed.
-        #self.row_changed(path, node)
 
     def _new_iter(self, nodeid):
         """
@@ -857,10 +862,7 @@ class TreeBaseModel(GObject.GObject, Gtk.TreeModel, BaseModel):
         not correspond to a gramps object.
         """
         node = self.get_node_from_iter(iter)
-        handle = node.handle
-        if handle and not isinstance(handle, str):
-            handle = handle.decode('utf-8')
-        return handle
+        return node.handle
 
     # The following implement the public interface of Gtk.TreeModel
 
@@ -896,7 +898,6 @@ class TreeBaseModel(GObject.GObject, Gtk.TreeModel, BaseModel):
         if node.handle is None:
             # Header rows dont get the foreground color set
             if col == self.color_column():
-                #color must not be utf-8
                 return "#000000000000"
 
             # Return the node name for the first column
@@ -909,14 +910,10 @@ class TreeBaseModel(GObject.GObject, Gtk.TreeModel, BaseModel):
             # return values for 'data' row, calling a function
             # according to column_defs table
             val = self._get_value(node.handle, col, node.secondary)
-        #GTK 3 should convert unicode objects automatically, but this
-        # gives wrong column values, so convert for python 2.7
+
         if val is None:
             return ''
-        elif not isinstance(val, str):
-            return val.decode('utf-8')
-        else:
-            return val
+        return val
 
     def _get_value(self, handle, col, secondary=False, store_cache=True):
         """

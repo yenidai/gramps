@@ -5,6 +5,7 @@
 # Copyright (C) 2009-2013  Douglas S. Blank
 # Copyright (C) 2013       Paul Franklin
 # Copyright (C) 2013-2014  Vassilii Khachaturov
+# Copyright (C) 2017       Nick Hall
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -671,55 +672,6 @@ class Date:
         return (self.calendar, self.modifier, self.quality,
                 self.dateval, text, self.sortval, self.newyear)
 
-    def to_struct(self):
-        """
-        Convert the data held in this object to a structure (eg,
-        struct) that represents all the data elements.
-
-        This method is used to recursively convert the object into a
-        self-documenting form that can easily be used for various
-        purposes, including diffs and queries.
-
-        These structures may be primitive Python types (string,
-        integer, boolean, etc.) or complex Python types (lists,
-        tuples, or dicts). If the return type is a dict, then the keys
-        of the dict match the fieldname of the object. If the return
-        struct (or value of a dict key) is a list, then it is a list
-        of structs. Otherwise, the struct is just the value of the
-        attribute.
-
-        :returns: Returns a struct containing the data of the object.
-        :rtype: dict
-        """
-        return {"_class": "Date",
-                "calendar": self.calendar,
-                "modifier": self.modifier,
-                "quality": self.quality,
-                "dateval": self.dateval,
-                "text": self.text,
-                "sortval": self.sortval,
-                "newyear": self.newyear}
-
-    @classmethod
-    def from_struct(cls, struct, full=False):
-        """
-        Given a struct data representation, return a serialized object.
-
-        :returns: Returns a serialized object
-        """
-        default = Date()
-        retval = (struct.get("calendar", default.calendar),
-                  struct.get("modifier", default.modifier),
-                  struct.get("quality", default.quality),
-                  struct.get("dateval", default.dateval),
-                  struct.get("text", default.text),
-                  struct.get("sortval", default.sortval),
-                  struct.get("newyear", default.newyear))
-        if not full and retval == (0, 0, 0, (0, 0, 0, False), '', 0, 0):
-            return None
-        else:
-            return retval
-
     def unserialize(self, data):
         """
         Load from the format created by serialize.
@@ -740,6 +692,37 @@ class Date:
         else:
             raise DateError("Invalid date to unserialize")
         return self
+
+    @classmethod
+    def get_schema(cls):
+        """
+        Returns the JSON Schema for this class.
+
+        :returns: Returns a dict containing the schema.
+        :rtype: dict
+        """
+        return {
+            "type": "object",
+            "title": _("Date"),
+            "properties": {
+                "_class": {"enum": [cls.__name__]},
+                "calendar": {"type": "integer",
+                             "title": _("Calendar")},
+                "modifier": {"type": "integer",
+                             "title": _("Modifier")},
+                "quality": {"type": "integer",
+                            "title": _("Quality")},
+                "dateval": {"type": "array",
+                            "title": _("Values"),
+                            "items": {"type": ["integer", "boolean"]}},
+                "text": {"type": "string",
+                         "title": _("Text")},
+                "sortval": {"type": "integer",
+                            "title": _("Sort value")},
+                "newyear": {"type": "integer",
+                            "title": _("New year begins")}
+            }
+        }
 
     def copy(self, source):
         """
@@ -1701,7 +1684,7 @@ class Date:
                     self.__compare(sanity.dateval, value, year_delta)
                 except DateError as err:
                     LOG.debug("Sanity check failed - self: {}, sanity: {}".
-                              format(self.to_struct(), sanity.to_struct()))
+                              format(self.__dict__, sanity.__dict__))
                     err.date = self
                     raise
 
@@ -1790,9 +1773,9 @@ class Date:
         """
         Return True if the date contains no information (empty text).
         """
-        return (self.modifier == Date.MOD_TEXTONLY and not self.text) or \
-               (self.get_start_date() == Date.EMPTY
-                and self.get_stop_date() == Date.EMPTY)
+        return not((self.modifier == Date.MOD_TEXTONLY and self.text)
+               or self.get_start_date() != Date.EMPTY
+                or self.get_stop_date() != Date.EMPTY)
 
     def is_compound(self):
         """

@@ -126,6 +126,7 @@ from gramps.gen.display.place import displayer as _pd
 from gramps.gen.proxy import CacheProxyDb
 from gramps.plugins.lib.libhtmlconst import _CHARACTER_SETS, _CC, _COPY_OPTIONS
 from gramps.gen.datehandler import get_date
+from gramps.gen.utils.db import get_birth_or_fallback, get_death_or_fallback
 
 # import HTML Class from src/plugins/lib/libhtml.py
 from gramps.plugins.lib.libhtml import Html, xml_lang
@@ -150,6 +151,9 @@ SORT_KEY = glocale.sort_key
 #------------------------------------------------
 # constants
 #------------------------------------------------
+HTTP = "http://"
+HTTPS = "https://"
+
 GOOGLE_MAPS = 'https://maps.googleapis.com/maps/'
 # javascript code for marker path
 MARKER_PATH = """
@@ -534,6 +538,12 @@ class BasePage:
         lang = report.options['trans']
         self.rlocale = report.set_locale(lang)
         self._ = self.rlocale.translation.sgettext
+        self.COLON = self._(':') # translators: needed for French, else ignore
+
+        if report.options['securesite']:
+            self.secure_mode = HTTPS
+        else:
+            self.secure_mode = HTTP
 
     # Functions used when no Web Page plugin is provided
     def add_instance(self, *param):
@@ -639,7 +649,7 @@ class BasePage:
         @param: place_lat_long -- for use in Family Map Pages. This will be None
         if called from Family pages, which do not create a Family Map
         """
-        family_list = sorted(individual.get_family_handle_list())
+        family_list = individual.get_family_handle_list()
         if not family_list:
             return None
 
@@ -755,28 +765,52 @@ class BasePage:
             )
             table = table + trow if table is not None else trow
 
-            tcell = Html("td", class_="ColumnValue")
+            tcell = Html("td", class_="ColumnValue", close=False)
             trow += tcell
 
-            ordered = Html("ol")
-            tcell += ordered
-            childlist = [child_ref.ref for child_ref in childlist]
+            with Html("table", class_="infolist eventlist") as table2:
+                thead = Html("thead")
+                table2 += thead
+                header = Html("tr")
 
-            # add individual's children event places to family map...
-            if self.familymappages:
-                for handle in childlist:
-                    child = self.r_db.get_person_from_handle(handle)
-                    if child:
-                        self._get_event_place(child, place_lat_long)
+                header.extend(
+                    Html("th", label, class_=colclass, inline=True)
+                    for (label, colclass) in [
+                        [self._("Name"), "ColumnName"],
+                        [self._("Birth Date"), "ColumnDate"],
+                        [self._("Death Date"), "ColumnDate"],
+                        ]
+                )
+                thead += header
 
-            children = add_birthdate(self.r_db, childlist)
-            if birthorder:
-                children = sorted(children)
+                # begin table body
+                tbody = Html("tbody")
+                table2 += tbody
 
-            ordered.extend(
-                (Html("li") + self.display_child_link(chandle))
-                for birth_date, chandle in children
-            )
+                childlist = [child_ref.ref for child_ref in childlist]
+
+                # add individual's children event places to family map...
+                if self.familymappages:
+                    for handle in childlist:
+                        child = self.r_db.get_person_from_handle(handle)
+                        if child:
+                            self._get_event_place(child, place_lat_long)
+
+                children = add_birthdate(self.r_db, childlist, self.rlocale)
+                if birthorder:
+                    children = sorted(children)
+
+                tbody.extend(
+                    (
+                     Html("tr", inline=True) +
+                     Html("td", inline=True, close=False) +
+                     self.display_child_link(chandle) +
+                     Html("td", birth, inline=True) +
+                     Html("td", death, inline=True)
+                    )
+                    for birth_date, birth, death, chandle in children
+                )
+            trow += table2
 
         # family LDS ordinance list
         family_lds_ordinance_list = family.get_lds_ord_list()
@@ -809,6 +843,23 @@ class BasePage:
             tcell += attrtable
             self.display_attr_list(family_attribute_list, attrtable)
         return table
+
+    def display_dates(self, handle):
+        """
+        used to display the birth date
+
+        @param: handle -- handle to the person
+        """
+        birth = death = ""
+        person = self.r_db.get_person_from_handle(handle)
+        if person:
+            bd_event = get_birth_or_fallback(self.r_db, child)
+            if bd_event:
+                birth = self.rlocale.get_date(bd_event.get_date_object())
+            dd_event = get_death_or_fallback(self.r_db, child)
+            if dd_event:
+                death = self.rlocale.get_date(dd_event.get_date_object())
+        return birth, death
 
     def complete_people(self, tcell, first_person, handle_list, uplink=True):
         """
@@ -973,7 +1024,7 @@ class BasePage:
         for notehandle in notelist:
             this_note = self.r_db.get_note_from_handle(notehandle)
             if this_note is not None:
-                notesection.extend(Html("i", str(this_note.type),
+                notesection.extend(Html("i", self._(this_note.type.xml_str()),
                                         class_="NoteType"))
                 notesection.extend(self.get_note_format(this_note, True))
         return notesection
@@ -1053,9 +1104,9 @@ class BasePage:
         attrlist.extend(event_ref.get_attribute_list())
         for attr in attrlist:
             htmllist.extend(Html("p",
-                                 _("%(type)s: %(value)s") % {
-                                     'type'  : Html("b", attr.get_type()),
-                                     'value' : attr.get_value()
+                                 _("%(str1)s: %(str2)s") % {
+                                     'str1' : Html("b", attr.get_type()),
+                                     'str2' : attr.get_value()
                                      }))
 
             #also output notes attached to the attributes
@@ -1096,14 +1147,8 @@ class BasePage:
                 latitude, longitude = conv_lat_lon(latitude, longitude, "D.D8")
                 if latitude is not None:
                     etype = event.get_type()
-
-                    # only allow Birth, Death, Census, Marriage,
-                    # and Divorce events...
-                    if etype in [EventType.BIRTH, EventType.DEATH,
-                                 EventType.CENSUS,
-                                 EventType.MARRIAGE, EventType.DIVORCE]:
-                        place_lat_long.append([latitude, longitude, placetitle,
-                                               place_handle, event_date, etype])
+                    place_lat_long.append([latitude, longitude, placetitle,
+                                           place_handle, event_date, etype])
 
     def _get_event_place(self, person, place_lat_long):
         """
@@ -1408,7 +1453,7 @@ class BasePage:
         if cindex:
             hyper.attr += ' name ="sref%d"' % cindex
 
-        # add GRAMPS ID
+        # add Gramps ID
         if not self.noid and gid:
             hyper += Html("span", ' [%s]' % gid, class_="grampsid", inline=True)
         return hyper
@@ -1780,7 +1825,7 @@ class BasePage:
         fname = "/".join(["css", _NARRATIVEPRINT])
         url3 = self.report.build_url_fname(fname, None, self.uplink)
 
-        # Link to GRAMPS favicon
+        # Link to Gramps favicon
         fname = "/".join(['images', 'favicon2.ico'])
         url4 = self.report.build_url_image("favicon2.ico",
                                            "images", self.uplink)
@@ -2113,7 +2158,7 @@ class BasePage:
 
     def media_ref_rect_regions(self, handle):
         """
-        GRAMPS feature #2634 -- attempt to highlight subregions in media
+        Gramps feature #2634 -- attempt to highlight subregions in media
         objects and link back to the relevant web page.
 
         This next section of code builds up the "records" we'll need to
@@ -2481,7 +2526,8 @@ class BasePage:
                     elif _type == UrlType.WEB_HOME:
                         if not (uri.startswith("http://") or
                                 uri.startswith("https://")):
-                            uri = "http://%(website)s" % {"website" : uri}
+                            url = self.secure_mode
+                            uri = url + "%(website)s" % {"website" : uri}
 
                     # FTP server address
                     elif _type == UrlType.WEB_FTP:
@@ -2590,7 +2636,11 @@ class BasePage:
                                           [self._("Page"), sref.page],
                                           [self._("Confidence"), conf]]:
                         if data:
-                            tmp += Html("li", "%s: %s" % (label, data))
+                            tmp += Html("li",
+                                        _("%(str1)s: %(str2)s") % {
+                                            'str1' : label,
+                                            'str2' : data
+                                            })
                     if self.create_media:
                         for media_ref in sref.get_media_list():
                             media_handle = media_ref.get_reference_handle()
@@ -2600,20 +2650,15 @@ class BasePage:
                                 mime_type = media.get_mime_type()
                                 if mime_type:
                                     if mime_type.startswith("image/"):
-                                        real_path, newpath = \
+                                        real_path, new_path = \
                                             self.report.prepare_copy_media(
                                                 media)
                                         newpath = self.report.build_url_fname(
-                                            newpath, uplink=self.uplink)
-                                        dest_dir = os.path.dirname(
-                                            self.report.cur_fname)
-                                        if dest_dir:
-                                            newpath = os.path.join(dest_dir,
-                                                                   newpath)
+                                            new_path, uplink=self.uplink)
                                         self.report.copy_file(
                                             media_path_full(self.r_db,
                                                             media.get_path()),
-                                            newpath)
+                                            new_path)
 
                                         tmp += Html("li",
                                                     self.media_link(
@@ -2635,12 +2680,12 @@ class BasePage:
                     for handle in sref.get_note_list():
                         this_note = self.r_db.get_note_from_handle(handle)
                         if this_note is not None:
+                            format = self.get_note_format(this_note, True)
                             tmp += Html("li",
-                                        "%s: %s" % (
-                                            str(this_note.get_type()),
-                                            self.get_note_format(this_note,
-                                                                 True)
-                                            ))
+                                        _("%(str1)s: %(str2)s") % {
+                                            'str1' : str(this_note.get_type()),
+                                            'str2' : format
+                                            })
                     if tmp:
                         cit_ref_li += tmp
                         ordered1 += cit_ref_li
@@ -2743,6 +2788,18 @@ class BasePage:
 
         tcell += self.new_person_link(partner.get_handle(), uplink=True,
                                       person=partner)
+        birth = death = ""
+        bd_event = get_birth_or_fallback(self.r_db, partner)
+        if bd_event:
+            birth = self.rlocale.get_date(bd_event.get_date_object())
+        dd_event = get_death_or_fallback(self.r_db, partner)
+        if dd_event:
+            death = self.rlocale.get_date(dd_event.get_date_object())
+
+        if death == "":
+            death = "..."
+        tcell += " ( * ", birth, " + ", death, " )"
+
         return trow
 
     def display_child_link(self, chandle):
@@ -3117,7 +3174,7 @@ class BasePage:
         """
         list_style = "1", "a", "I", "A", "i"
         ordered = Html("ol", class_="Col1", role="Volume-n-Page")
-        ordered.attr += "type = %s" % list_style[depth]
+        ordered.attr += " type=%s" % list_style[depth]
         if depth > len(list_style):
             return ""
         # Sort by the name of the object at the bkref_class, bkref_handle
@@ -3533,11 +3590,11 @@ class FamilyPages(BasePage):
                             handle_list, key=self.sort_on_name_and_grampsid):
                         person = self.r_db.get_person_from_handle(person_handle)
                         if person:
-                            family_list = sorted(pers_fam_dict[person_handle],
-                                                 key=lambda x: x.get_gramps_id()
-                                                )
+                            family_list = person.get_family_handle_list()
                             first_family = True
-                            for family in family_list:
+                            for family_handle in family_list:
+                                get_family = self.r_db.get_family_from_handle
+                                family = get_family(family_handle)
                                 trow = Html("tr")
                                 tbody += trow
 
@@ -3986,7 +4043,7 @@ class PlacePages(BasePage):
                 placedetail += urllinks
 
             # add place map here
-            # Link to GRAMPS marker
+            # Link to Gramps marker
             fname = "/".join(['images', 'marker.png'])
             marker_path = self.report.build_url_image("marker.png",
                                                       "images", self.uplink)
@@ -3996,6 +4053,10 @@ class PlacePages(BasePage):
                     latitude, longitude = conv_lat_lon(place.get_latitude(),
                                                        place.get_longitude(),
                                                        "D.D8")
+                    if not longitude:
+                        longitude = 0.0
+                    if not latitude:
+                        latitude = 0.0
                     placetitle = place_name
 
                     # add narrative-maps CSS...
@@ -4012,19 +4073,24 @@ class PlacePages(BasePage):
                         head += Html("script", type="text/javascript",
                                      src=src_js, inline=True)
                     else:
-                        url = "http://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css"
+                        url = self.secure_mode
+                        url += "maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css"
                         head += Html("link", href=url, type="text/javascript",
                                      rel="stylesheet")
-                        src_js = "http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"
+                        src_js = self.secure_mode
+                        src_js += "ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"
                         head += Html("script", type="text/javascript",
                                      src=src_js, inline=True)
-                        src_js = "http://openlayers.org/en/v3.17.1/build/ol.js"
+                        src_js = self.secure_mode
+                        src_js += "openlayers.org/en/v3.17.1/build/ol.js"
                         head += Html("script", type="text/javascript",
                                      src=src_js, inline=True)
-                        url = "http://openlayers.org/en/v3.17.1/css/ol.css"
+                        url = self.secure_mode
+                        url += "openlayers.org/en/v3.17.1/css/ol.css"
                         head += Html("link", href=url, type="text/javascript",
                                      rel="stylesheet")
-                        src_js = "http://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"
+                        src_js = self.secure_mode
+                        src_js += "maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"
                         head += Html("script", type="text/javascript",
                                      src=src_js, inline=True)
 
@@ -4060,8 +4126,7 @@ class PlacePages(BasePage):
                                 canvas += jsc
                                 param1 = xml_lang()[3:5].lower()
                                 jsc += MARKER_PATH % marker_path
-                                jsc += OSM_MARKERS % ([[float(longitude),
-                                                        float(latitude),
+                                jsc += OSM_MARKERS % ([[longitude, latitude,
                                                         placetitle]],
                                                      longitude, latitude, 10)
 
@@ -5159,12 +5224,8 @@ class MediaPages(BasePage):
                 # add unused media
                 media_list = self.r_db.get_media_handles()
                 for media_ref in media_list:
-                    if isinstance(media_ref, bytes):
-                        media_handle = media_ref.decode("utf-8")
-                    else:
-                        media_handle = media_ref
-                    if media_handle not in self.report.obj_dict[Media]:
-                        unused_media_handles.append(media_handle)
+                    if media_ref not in self.report.obj_dict[Media]:
+                        unused_media_handles.append(media_ref)
                 unused_media_handles = sorted(
                     unused_media_handles,
                     key=lambda x: sort_by_desc_and_gid(
@@ -5610,12 +5671,8 @@ class ThumbnailPreviewPage(BasePage):
             media_list = self.r_db.get_media_handles()
             unused_media_handles = []
             for media_ref in media_list:
-                if isinstance(media_ref, bytes):
-                    media_handle = media_ref.decode("utf-8")
-                else:
-                    media_handle = media_ref
-                if media_handle not in self.report.obj_dict[Media]:
-                    self.photo_keys.append(media_handle)
+                if media_ref not in self.report.obj_dict[Media]:
+                    self.photo_keys.append(media_ref)
 
         media_list = []
         for person_handle in self.photo_keys:
@@ -6190,7 +6247,7 @@ class PersonPages(BasePage):
                     elif first_surname:
                         first_surname = False
                         tcell += Html("a", html_escape(surname),
-                                      title="Surnames " + surname)
+                                      title=self._("Surnames") + " " + surname)
                     else:
                         tcell += "&nbsp;"
 
@@ -6600,19 +6657,24 @@ class PersonPages(BasePage):
             head += Html("script", type="text/javascript",
                          src=src_js, inline=True)
         else:
-            url = "http://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css"
+            url = self.secure_mode
+            url += "maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css"
             head += Html("link", href=url, type="text/javascript",
                          rel="stylesheet")
-            src_js = "http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"
+            src_js = self.secure_mode
+            src_js += "ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"
             head += Html("script", type="text/javascript",
                          src=src_js, inline=True)
-            src_js = "http://openlayers.org/en/v3.17.1/build/ol.js"
+            src_js = self.secure_mode
+            src_js += "openlayers.org/en/v3.17.1/build/ol.js"
             head += Html("script", type="text/javascript",
                          src=src_js, inline=True)
-            url = "http://openlayers.org/en/v3.17.1/css/ol.css"
+            url = self.secure_mode
+            url += "openlayers.org/en/v3.17.1/css/ol.css"
             head += Html("link", href=url, type="text/javascript",
                          rel="stylesheet")
-            src_js = "http://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"
+            src_js = self.secure_mode
+            src_js += "maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"
             head += Html("script", type="text/javascript",
                          src=src_js, inline=True)
 
@@ -6705,7 +6767,7 @@ class PersonPages(BasePage):
                           type="text/javascript", indent=False) as jsc:
                     head += jsc
 
-                    # Link to GRAMPS marker
+                    # Link to Gramps marker
                     fname = "/".join(['images', 'marker.png'])
                     marker_path = self.report.build_url_image("marker.png",
                                                               "images",
@@ -6896,12 +6958,22 @@ class PersonPages(BasePage):
                             if win():
                                 thumbnail_url = thumbnail_url.replace('\\', "/")
             url = self.report.build_url_fname_html(person.handle, "ppl", True)
+            birth = death = ""
+            bd_event = get_birth_or_fallback(self.r_db, person)
+            if bd_event:
+                birth = self.rlocale.get_date(bd_event.get_date_object())
+            dd_event = get_death_or_fallback(self.r_db, person)
+            if dd_event:
+                death = self.rlocale.get_date(dd_event.get_date_object())
+            if death == "":
+                death = "..."
+            value = person_name + "<br/>*", birth, "<br/>+", death
             if thumbnail_url is None:
-                boxbg += Html("a", href=url, class_="noThumb") + person_name
+                boxbg += Html("a", href=url, class_="noThumb") + value
             else:
                 thumb = Html("span", class_="thumbnail") + (
                     Html("img", src=thumbnail_url, alt="Image: " + person_name))
-                boxbg += Html("a", href=url) + thumb + person_name
+                boxbg += Html("a", href=url) + thumb + value
         shadow = Html(
             "div", class_="shadow", inline=True,
             style="top: %dpx; left: %dpx;" % (top + _SHADOW, xoff + _SHADOW))
@@ -7120,12 +7192,12 @@ class PersonPages(BasePage):
                 childlist = family.get_child_ref_list()
 
                 childlist = [child_ref.ref for child_ref in childlist]
-                children = add_birthdate(self.r_db, childlist)
+                children = add_birthdate(self.r_db, childlist, self.rlocale)
 
                 if birthorder:
                     children = sorted(children)
 
-                for birthdate, handle in children:
+                for birthdate, birth, death, handle in children:
                     if handle == self.person.get_handle():
                         child_ped(ol_html)
                     elif handle:
@@ -7387,12 +7459,31 @@ class PersonPages(BasePage):
         @param: rel    -- The relation
         """
         tcell1 = Html("td", title, class_="ColumnAttribute", inline=True)
-        tcell2 = Html("td", class_="ColumnValue")
+        tcell2 = Html("td", class_="ColumnValue", close=False, inline=True)
 
         tcell2 += self.new_person_link(handle, uplink=True)
 
         if rel and rel != ChildRefType(ChildRefType.BIRTH):
             tcell2 += ''.join(['&nbsp;'] *3 + ['(%s)']) % str(rel)
+
+        person = self.r_db.get_person_from_handle(handle)
+        birth = death = ""
+        if person:
+            bd_event = get_birth_or_fallback(self.r_db, person)
+            if bd_event:
+                birth = self.rlocale.get_date(bd_event.get_date_object())
+            dd_event = get_death_or_fallback(self.r_db, person)
+            if dd_event:
+                death = self.rlocale.get_date(dd_event.get_date_object())
+
+        tcell3 = Html("td", birth, class_="ColumnDate",
+                      inline=False, close=False, indent=False)
+
+        tcell4 = Html("td", death, class_="ColumnDate",
+                      inline=True, close=False, indent=False)
+
+        tcell2 += tcell3
+        tcell2 += tcell4
 
         # return table columns to its caller
         return tcell1, tcell2
@@ -7480,7 +7571,8 @@ class PersonPages(BasePage):
                     except:
                         reln = self._("Not siblings")
 
-                reln = "&nbsp;&nbsp;&nbsp;&nbsp;" + reln
+                val1 = "&nbsp;&nbsp;&nbsp;&nbsp;"
+                reln = val1 + reln
                 # Now output reln, child_link, (frel, mrel)
                 frel = child_ref.get_father_relation()
                 mrel = child_ref.get_mother_relation()
@@ -7491,10 +7583,27 @@ class PersonPages(BasePage):
                 trow = Html("tr") + (
                     Html("td", reln, class_="ColumnAttribute", inline=True))
 
-                tcell = Html("td", class_="ColumnValue", inline=True)
-                tcell += "&nbsp;&nbsp;&nbsp;&nbsp;"
+                tcell = Html("td", val1, class_="ColumnValue", inline=True)
                 tcell += self.display_child_link(child_handle)
+
+                birth = death = ""
+                bd_event = get_birth_or_fallback(self.r_db, child)
+                if bd_event:
+                    birth = self.rlocale.get_date(bd_event.get_date_object())
+                dd_event = get_death_or_fallback(self.r_db, child)
+                if dd_event:
+                    death = self.rlocale.get_date(dd_event.get_date_object())
+
+                tcell2 = Html("td", birth, class_="ColumnDate",
+                              inline=True)
+
+                tcell3 = Html("td", death, class_="ColumnDate",
+                              inline=True)
+
                 trow += tcell
+                trow += tcell2
+                trow += tcell3
+
                 tcell = Html("td", frelmrel, class_="ColumnValue",
                              inline=True)
                 trow += tcell
@@ -7579,6 +7688,8 @@ class PersonPages(BasePage):
                     for (label, colclass) in [
                         (self._("Relation to main person"), "ColumnAttribute"),
                         (self._("Name"), "ColumnValue"),
+                        (self._("Birth date"), "ColumnValue"),
+                        (self._("Death date"), "ColumnValue"),
                         (self._("Relation within this family "
                                 "(if not by birth)"),
                          "ColumnValue")
@@ -7586,7 +7697,6 @@ class PersonPages(BasePage):
                 )
 
                 tbody = Html("tbody")
-                table += tbody
 
                 all_family_handles = list(parent_list)
                 (birthmother, birthfather) = self.rel_class.get_birth_parents(
@@ -7599,7 +7709,7 @@ class PersonPages(BasePage):
                         # Display this family
                         self.display_ind_parent_family(birthmother,
                                                        birthfather,
-                                                       family, table, first)
+                                                       family, tbody, first)
                         first = False
 
                         if self.report.options['showhalfsiblings']:
@@ -7609,11 +7719,12 @@ class PersonPages(BasePage):
                             self.display_step_families(
                                 family.get_father_handle(), family,
                                 all_family_handles,
-                                birthmother, birthfather, table)
+                                birthmother, birthfather, tbody)
                             self.display_step_families(
                                 family.get_mother_handle(), family,
                                 all_family_handles,
-                                birthmother, birthfather, table)
+                                birthmother, birthfather, tbody)
+                table += tbody
         return section
 
     def pedigree_person(self, person):
@@ -8094,54 +8205,55 @@ class StatisticsPage(BasePage):
             sec11 += Html("h4", self._("Individuals"), inline=True)
         body += sec11
         with Html("div", class_="content", id='subsection narrative') as sec1:
-            sec1 += Html("br", self._("Number of individuals") + ":" +
+            sec1 += Html("br", self._("Number of individuals") + self.COLON +
                          "%d" % npersons, inline=True)
-            sec1 += Html("br", self._("Males") + ":" +
+            sec1 += Html("br", self._("Males") + self.COLON +
                          "%d" % males, inline=True)
-            sec1 += Html("br", self._("Females") + ":" +
+            sec1 += Html("br", self._("Females") + self.COLON +
                          "%d" % females, inline=True)
-            sec1 += Html("br", self._("Individuals with unknown gender") + ":" +
-                         "%d" % unknown, inline=True)
+            sec1 += Html("br", self._("Individuals with unknown gender") +
+                         self.COLON + "%d" % unknown, inline=True)
         body += sec1
         with Html("div", class_="content", id='subsection narrative') as sec2:
             sec2 += Html("h4", self._("Family Information"), inline=True)
-            sec2 += Html("br", self._("Number of families") + ":" +
+            sec2 += Html("br", self._("Number of families") + self.COLON +
                          "%d" % nfamilies, inline=True)
-            sec2 += Html("br", self._("Unique surnames") + ":" +
+            sec2 += Html("br", self._("Unique surnames") + self.COLON +
                          "%d" % nsurnames, inline=True)
         body += sec2
         with Html("div", class_="content", id='subsection narrative') as sec3:
             sec3 += Html("h4", self._("Media Objects"), inline=True)
             sec3 += Html("br",
                          self._("Total number of media object references") +
-                            ":" + "%d" % total_media, inline=True)
+                            self.COLON + "%d" % total_media, inline=True)
             sec3 += Html("br", self._("Number of unique media objects") +
-                            ":" + "%d" % mobjects, inline=True)
+                            self.COLON + "%d" % mobjects, inline=True)
             sec3 += Html("br", self._("Total size of media objects") +
-                            ":" + "%8s %s" % (mbytes, self._("Megabyte|MB")),
+                            self.COLON +
+                            "%8s %s" % (mbytes, self._("Megabyte|MB")),
                             inline=True)
             sec3 += Html("br", self._("Missing Media Objects") +
-                            ":" + "%d" % len(notfound), inline=True)
+                            self.COLON + "%d" % len(notfound), inline=True)
         body += sec3
         with Html("div", class_="content", id='subsection narrative') as sec4:
             sec4 += Html("h4", self._("Miscellaneous"), inline=True)
-            sec4 += Html("br", self._("Number of events") +
-                            ":" + "%d" % report.database.get_number_of_events(),
+            sec4 += Html("br", self._("Number of events") + self.COLON +
+                            "%d" % report.database.get_number_of_events(),
                             inline=True)
-            sec4 += Html("br", self._("Number of places") +
-                            ":" + "%d" % report.database.get_number_of_places(),
+            sec4 += Html("br", self._("Number of places") + self.COLON +
+                            "%d" % report.database.get_number_of_places(),
                             inline=True)
             nsources = report.database.get_number_of_sources()
             sec4 += Html("br", self._("Number of sources") +
-                            ":" + "%d" % nsources,
+                            self.COLON + "%d" % nsources,
                             inline=True)
             ncitations = report.database.get_number_of_citations()
             sec4 += Html("br", self._("Number of citations") +
-                            ":" + "%d" % ncitations,
+                            self.COLON + "%d" % ncitations,
                             inline=True)
             nrepo = report.database.get_number_of_repositories()
             sec4 += Html("br", self._("Number of repositories") +
-                            ":" + "%d" % nrepo,
+                            self.COLON + "%d" % nrepo,
                             inline=True)
         body += sec4
 
@@ -8159,38 +8271,38 @@ class StatisticsPage(BasePage):
         body += section
         with Html("div", class_="content", id='subsection narrative') as sec5:
             sec5 += Html("h4", self._("Individuals"), inline=True)
-            sec5 += Html("br", self._("Number of individuals") + ":" +
+            sec5 += Html("br", self._("Number of individuals") + self.COLON +
                             "%d" % len(self.report.bkref_dict[Person]),
                             inline=True)
-            sec5 += Html("br", self._("Males") + ":" +
+            sec5 += Html("br", self._("Males") + self.COLON +
                          "%d" % males, inline=True)
-            sec5 += Html("br", self._("Females") + ":" +
+            sec5 += Html("br", self._("Females") + self.COLON +
                          "%d" % females, inline=True)
-            sec5 += Html("br", self._("Individuals with unknown gender") + ":" +
-                         "%d" % unknown, inline=True)
+            sec5 += Html("br", self._("Individuals with unknown gender") +
+                               self.COLON + "%d" % unknown, inline=True)
         body += sec5
         with Html("div", class_="content", id='subsection narrative') as sec6:
             sec6 += Html("h4", self._("Family Information"), inline=True)
-            sec6 += Html("br", self._("Number of families") + ":" +
+            sec6 += Html("br", self._("Number of families") + self.COLON +
                             "%d" % len(self.report.bkref_dict[Family]),
                             inline=True)
         body += sec6
         with Html("div", class_="content", id='subsection narrative') as sec7:
             sec7 += Html("h4", self._("Miscellaneous"), inline=True)
-            sec7 += Html("br", self._("Number of events") +
-                            ":" + "%d" % len(self.report.bkref_dict[Event]),
+            sec7 += Html("br", self._("Number of events") + self.COLON +
+                            "%d" % len(self.report.bkref_dict[Event]),
                             inline=True)
-            sec7 += Html("br", self._("Number of places") +
-                            ":" + "%d" % len(self.report.bkref_dict[Place]),
+            sec7 += Html("br", self._("Number of places") + self.COLON +
+                            "%d" % len(self.report.bkref_dict[Place]),
                             inline=True)
-            sec7 += Html("br", self._("Number of sources") +
-                            ":" + "%d" % len(self.report.bkref_dict[Source]),
+            sec7 += Html("br", self._("Number of sources") + self.COLON +
+                            "%d" % len(self.report.bkref_dict[Source]),
                             inline=True)
-            sec7 += Html("br", self._("Number of citations") +
-                            ":" + "%d" % len(self.report.bkref_dict[Citation]),
+            sec7 += Html("br", self._("Number of citations") + self.COLON +
+                            "%d" % len(self.report.bkref_dict[Citation]),
                             inline=True)
-            sec7 += Html("br", self._("Number of repositories") +
-                           ":" + "%d" % len(self.report.bkref_dict[Repository]),
+            sec7 += Html("br", self._("Number of repositories") + self.COLON +
+                            "%d" % len(self.report.bkref_dict[Repository]),
                             inline=True)
         body += sec7
 
@@ -8228,7 +8340,7 @@ class NavWebReport(Report):
     """
     def __init__(self, database, options, user):
         """
-        @param: database -- The GRAMPS database instance
+        @param: database -- The Gramps database instance
         @param: options  -- Instance of the Options class for this report
         @param: user     -- Instance of a gen.user.User()
         """
@@ -8242,8 +8354,9 @@ class NavWebReport(Report):
             menuopt = menu.get_option_by_name(optname)
             self.options[optname] = menuopt.get_value()
 
-        lang = self.options['trans']
-        self.rlocale = self.set_locale(lang)
+        self.set_locale(options.menu.get_option_by_name('trans').get_value())
+        stdoptions.run_date_format_option(self, menu)
+        self.rlocale = self._locale
 
         stdoptions.run_private_data_option(self, menu)
         stdoptions.run_living_people_option(self, menu)
@@ -8349,6 +8462,10 @@ class NavWebReport(Report):
         self.bkref_dict = None
         self.rel_class = None
         self.tab = None
+        if self.options['securesite']:
+            self.secure_mode = HTTPS
+        else:
+            self.secure_mode = HTTP
 
     def write_report(self):
         """
@@ -8573,19 +8690,12 @@ class NavWebReport(Report):
             self.obj_dict[obj_class] = defaultdict(set)
 
         ind_list = self._db.iter_person_handles()
-        with self.user.progress(_("Narrated Web Site Report"),
-                                _('Applying Person Filter...'),
-                                self._db.get_number_of_people()) as step:
-            ind_list = self.filter.apply(self._db, ind_list, step)
+        ind_list = self.filter.apply(self._db, ind_list, user=self.user)
 
         with self.user.progress(_("Narrated Web Site Report"),
                                 _('Constructing list of other objects...'),
                                 sum(1 for _ in ind_list)) as step:
             for handle in ind_list:
-                # FIXME work around bug that self.database.iter under python 3
-                # returns (binary) data rather than text
-                if not isinstance(handle, str):
-                    handle = handle.decode('utf-8')
                 step()
                 self._add_person(handle, "", "")
 
@@ -9098,7 +9208,7 @@ class NavWebReport(Report):
             fdir, fname = os.path.split(from_path)
             self.copy_file(from_path, fname, "images")
 
-        # copy GRAMPS marker icon for openstreetmap
+        # copy Gramps marker icon for openstreetmap
         fname = CSS["marker"]["filename"]
         self.copy_file(fname, "marker.png", "images")
 
@@ -9596,7 +9706,8 @@ class NavWebOptions(MenuReportOptions):
         self.__down_fname1 = None
         self.__navigation = None
         self.__target_cal_uri = None
-        MenuReportOptions.__init__(self, name, dbase)
+        db_options = name + ' ' + dbase.get_dbname()
+        MenuReportOptions.__init__(self, db_options, dbase)
 
     def add_menu_options(self, menu):
         """
@@ -9605,10 +9716,13 @@ class NavWebOptions(MenuReportOptions):
         @param: menu -- The menu for which we add options
         """
         self.__add_report_options(menu)
+        self.__add_report_html(menu)
+        self.__add_report_display(menu)
         self.__add_page_generation_options(menu)
-        self.__add_privacy_options(menu)
+        self.__add_images_generation_options(menu)
         self.__add_download_options(menu)
         self.__add_advanced_options(menu)
+        self.__add_advanced_options_2(menu)
         self.__add_place_map_options(menu)
         self.__add_others_options(menu)
 
@@ -9656,7 +9770,17 @@ class NavWebOptions(MenuReportOptions):
 
         self.__update_filters()
 
-        stdoptions.add_name_format_option(menu, category_name)
+        stdoptions.add_living_people_option(menu, category_name)
+        stdoptions.add_private_data_option(menu, category_name, default=False)
+
+        addopt = partial(menu.add_option, category_name)
+
+    def __add_report_html(self, menu):
+        """
+        Html Options for the Report.
+        """
+        category_name = _("Html options")
+        addopt = partial( menu.add_option, category_name )
 
         ext = EnumeratedListOption(_("File extension"), ".html")
         for etype in _WEB_EXT:
@@ -9718,9 +9842,36 @@ class NavWebOptions(MenuReportOptions):
         self.__graphgens.set_help(_("The number of generations to include in "
                                     "the ancestor graph"))
         addopt("graphgens", self.__graphgens)
-
-        stdoptions.add_localization_option(menu, category_name)
         self.__graph_changed()
+
+        self.__securesite = BooleanOption(_("This is a secure site (https)"),
+                                          False)
+        self.__securesite.set_help(_('Whether to use http:// or https://'))
+        addopt("securesite", self.__securesite)
+
+    def __add_report_display(self, menu):
+        """
+        How to display names, datyes, ...
+        """
+        category_name = _("Display")
+        addopt = partial( menu.add_option, category_name )
+
+
+        stdoptions.add_name_format_option(menu, category_name)
+
+        locale_opt = stdoptions.add_localization_option(menu, category_name)
+        stdoptions.add_date_format_option(menu, category_name, locale_opt)
+
+        nogid = BooleanOption(_('Suppress Gramps ID'), False)
+        nogid.set_help(_('Whether to include the Gramps ID of objects'))
+        addopt( "nogid", nogid )
+        addopt = partial(menu.add_option, category_name)
+
+        birthorder = BooleanOption(
+            _('Sort all children in birth order'), False)
+        birthorder.set_help(
+            _('Whether to display children in birth order or in entry order?'))
+        addopt("birthorder", birthorder)
 
     def __add_page_generation_options(self, menu):
         """
@@ -9767,6 +9918,13 @@ class NavWebOptions(MenuReportOptions):
         footernote.set_help(_("A note to be used as the page footer"))
         addopt("footernote", footernote)
 
+    def __add_images_generation_options(self, menu):
+        """
+        Options on the "Page Generation" tab.
+        """
+        category_name = _("Images Generation")
+        addopt = partial(menu.add_option, category_name)
+
         self.__gallery = BooleanOption(_("Include images and media objects"),
                                        True)
         self.__gallery.set_help(_('Whether to include '
@@ -9806,21 +9964,6 @@ class NavWebOptions(MenuReportOptions):
         addopt("maxinitialimageheight", self.__maxinitialimageheight)
 
         self.__gallery_changed()
-
-        nogid = BooleanOption(_('Suppress Gramps ID'), False)
-        nogid.set_help(_('Whether to include the Gramps ID of objects'))
-        addopt("nogid", nogid)
-
-    def __add_privacy_options(self, menu):
-        """
-        Options on the "Privacy" tab.
-        """
-        category_name = _("Privacy")
-
-        stdoptions.add_living_people_option(menu, category_name)
-        stdoptions.add_private_data_option(menu, category_name, default=False)
-
-        addopt = partial(menu.add_option, category_name)
 
     def __add_download_options(self, menu):
         """
@@ -9909,11 +10052,12 @@ class NavWebOptions(MenuReportOptions):
               "step-siblings with the parents and siblings"))
         addopt('showhalfsiblings', showallsiblings)
 
-        birthorder = BooleanOption(
-            _('Sort all children in birth order'), False)
-        birthorder.set_help(
-            _('Whether to display children in birth order or in entry order?'))
-        addopt("birthorder", birthorder)
+    def __add_advanced_options_2(self, menu):
+        """
+        Continue options on the "Advanced" tab.
+        """
+        category_name = _("Include")
+        addopt = partial(menu.add_option, category_name)
 
         inc_families = BooleanOption(_("Include family pages"), False)
         inc_families.set_help(_("Whether or not to include family pages."))
@@ -10073,7 +10217,7 @@ class NavWebOptions(MenuReportOptions):
         """
         gid = self.__pid.get_value()
         person = self.__db.get_person_from_gramps_id(gid)
-        filter_list = utils.get_person_filters(person, False)
+        filter_list = utils.get_person_filters(person, include_single=False)
         self.__filter.set_filters(filter_list)
 
     def __filter_changed(self):
@@ -10082,12 +10226,11 @@ class NavWebOptions(MenuReportOptions):
         disable the person option
         """
         filter_value = self.__filter.get_value()
-        if filter_value in [1, 2, 3, 4]:
-            # Filters 1, 2, 3 and 4 rely on the center person
-            self.__pid.set_available(True)
-        else:
-            # The rest don't
+        if filter_value == 0: # "Entire Database" (as "include_single=False")
             self.__pid.set_available(False)
+        else:
+            # The other filters need a center person (assume custom ones too)
+            self.__pid.set_available(True)
 
     def __stylesheet_changed(self):
         """
@@ -10544,12 +10687,18 @@ def _has_webpage_extension(url):
     """
     return any(url.endswith(ext) for ext in _WEB_EXT)
 
-def add_birthdate(dbase, ppl_handle_list):
+def add_birthdate(dbase, ppl_handle_list, rlocale):
     """
     This will sort a list of child handles in birth order
+    For each entry in the list, we'll have :
+         birth date
+         The transtated birth date for the configured locale
+         The transtated death date for the configured locale
+         The handle for the child
 
     @param: dbase           -- The database to use
     @param: ppl_handle_list -- the handle for the people
+    @param: rlocale         -- the locale for date translation
     """
     sortable_individuals = []
     for person_handle in ppl_handle_list:
@@ -10557,11 +10706,18 @@ def add_birthdate(dbase, ppl_handle_list):
         person = dbase.get_person_from_handle(person_handle)
         if person:
             birth_ref = person.get_birth_ref()
+            birth1 = ""
             if birth_ref:
                 birth = dbase.get_event_from_handle(birth_ref.ref)
                 if birth:
+                    birth1 = rlocale.get_date(birth.get_date_object())
                     birth_date = birth.get_date_object().get_sort_value()
-        sortable_individuals.append((birth_date, person_handle))
+            death_event = get_death_or_fallback(dbase, person)
+            if death_event:
+                death = rlocale.get_date(death_event.get_date_object())
+            else:
+                death = ""
+        sortable_individuals.append((birth_date, birth1, death, person_handle))
 
     # return a list of handles with the individual's birthdate attached
     return sortable_individuals

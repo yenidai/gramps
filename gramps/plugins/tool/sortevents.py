@@ -107,7 +107,8 @@ class SortEvents(PluginWindows.ToolManagedWindowBatch):
         Sort the personal events associated with the selected people.
         """
         people_handles = self.filter.apply(self.db,
-                                 self.db.iter_person_handles())
+                                 self.db.iter_person_handles(),
+                                 user=self._user)
         self.progress.set_pass(_("Sorting personal events..."),
                                     self.db.get_number_of_people())
         family_handles = []
@@ -197,12 +198,11 @@ class SortEventOptions(MenuToolOptions):
         disable the person option
         """
         filter_value = self.__filter.get_value()
-        if filter_value in [1, 2, 3, 4]:
-            # Filters 1, 2, 3 and 4 rely on the center person
-            self.__pid.set_available(True)
-        else:
-            # The rest don't
+        if filter_value == 0: # "Entire Database" (as "include_single=False")
             self.__pid.set_available(False)
+        else:
+            # The other filters need a center person (assume custom ones too)
+            self.__pid.set_available(True)
 
     def __update_filters(self):
         """
@@ -210,5 +210,5 @@ class SortEventOptions(MenuToolOptions):
         """
         gid = self.__pid.get_value()
         person = self.__db.get_person_from_gramps_id(gid)
-        filter_list = utils.get_person_filters(person, False)
+        filter_list = utils.get_person_filters(person, include_single=False)
         self.__filter.set_filters(filter_list)

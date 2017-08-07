@@ -46,7 +46,7 @@ _ = glocale.translation.gettext
 from ..lib.childreftype import ChildRefType
 from ..lib.childref import ChildRef
 from .txn import DbTxn
-from .exceptions import DbTransactionCancel
+from .exceptions import DbTransactionCancel, DbException
 
 _LOG = logging.getLogger(DBLOGNAME)
 
@@ -73,12 +73,6 @@ class DbReadBase:
         """
         self.basedb = self
         self.__feature = {} # {"feature": VALUE, ...}
-
-    def get_table_func(self, table=None, func=None):
-        """
-        Base implementation of get_table_func.
-        """
-        return None
 
     def get_feature(self, feature):
         """
@@ -336,6 +330,17 @@ class DbReadBase:
         Return a reference to a cursor over Place objects.  Example use::
 
             with get_place_cursor() as cursor:
+                for handle, place in cursor:
+                    # process place object pointed to by the handle
+        """
+        raise NotImplementedError
+
+    def get_place_tree_cursor(self):
+        """
+        Return a reference to a cursor that iterates over Place objects in the
+        order they appear in the place hierarchy.  Example use::
+
+            with get_place_tree_cursor() as cursor:
                 for handle, place in cursor:
                     # process place object pointed to by the handle
         """
@@ -600,12 +605,15 @@ class DbReadBase:
         """
         raise NotImplementedError
 
-    def get_citation_handles(self, sort_handles=False):
+    def get_citation_handles(self, sort_handles=False, locale=glocale):
         """
         Return a list of database handles, one handle for each Citation in
         the database.
 
-        If sort_handles is True, the list is sorted by Citation title.
+        :param sort_handles: If True, the list is sorted by Citation title.
+        :type sort_handles: bool
+        :param locale: The locale to use for collation.
+        :type locale: A GrampsLocale object.
         """
         raise NotImplementedError
 
@@ -619,24 +627,30 @@ class DbReadBase:
         """
         raise NotImplementedError
 
-    def get_family_handles(self, sort_handles=False):
+    def get_family_handles(self, sort_handles=False, locale=glocale):
         """
         Return a list of database handles, one handle for each Family in
         the database.
 
-        If sort_handles is True, the list is sorted by surnames.
+        :param sort_handles: If True, the list is sorted by surnames.
+        :type sort_handles: bool
+        :param locale: The locale to use for collation.
+        :type locale: A GrampsLocale object.
 
         .. warning:: For speed the keys are directly returned, so handles are
                      bytes type
         """
         raise NotImplementedError
 
-    def get_media_handles(self, sort_handles=False):
+    def get_media_handles(self, sort_handles=False, locale=glocale):
         """
         Return a list of database handles, one handle for each Media in
         the database.
 
-        If sort_handles is True, the list is sorted by title.
+        :param sort_handles: If True, the list is sorted by title.
+        :type sort_handles: bool
+        :param locale: The locale to use for collation.
+        :type locale: A GrampsLocale object.
 
         .. warning:: For speed the keys are directly returned, so handles are
                      bytes type
@@ -653,24 +667,30 @@ class DbReadBase:
         """
         raise NotImplementedError
 
-    def get_person_handles(self, sort_handles=False):
+    def get_person_handles(self, sort_handles=False, locale=glocale):
         """
         Return a list of database handles, one handle for each Person in
         the database.
 
-        If sort_handles is True, the list is sorted by surnames.
+        :param sort_handles: If True, the list is sorted by surnames.
+        :type sort_handles: bool
+        :param locale: The locale to use for collation.
+        :type locale: A GrampsLocale object.
 
         .. warning:: For speed the keys are directly returned, so handles are
                      bytes type
         """
         raise NotImplementedError
 
-    def get_place_handles(self, sort_handles=False):
+    def get_place_handles(self, sort_handles=False, locale=glocale):
         """
         Return a list of database handles, one handle for each Place in
         the database.
 
-        If sort_handles is True, the list is sorted by Place title.
+        :param sort_handles: If True, the list is sorted by Place title.
+        :type sort_handles: bool
+        :param locale: The locale to use for collation.
+        :type locale: A GrampsLocale object.
 
         .. warning:: For speed the keys are directly returned, so handles are
                      bytes type
@@ -687,24 +707,30 @@ class DbReadBase:
         """
         raise NotImplementedError
 
-    def get_source_handles(self, sort_handles=False):
+    def get_source_handles(self, sort_handles=False, locale=glocale):
         """
         Return a list of database handles, one handle for each Source in
         the database.
 
-        If sort_handles is True, the list is sorted by Source title.
+        :param sort_handles: If True, the list is sorted by Source title.
+        :type sort_handles: bool
+        :param locale: The locale to use for collation.
+        :type locale: A GrampsLocale object.
 
         .. warning:: For speed the keys are directly returned, so handles are
                      bytes type
         """
         raise NotImplementedError
 
-    def get_tag_handles(self, sort_handles=False):
+    def get_tag_handles(self, sort_handles=False, locale=glocale):
         """
         Return a list of database handles, one handle for each Tag in
         the database.
 
-        If sort_handles is True, the list is sorted by Tag name.
+        :param sort_handles: If True, the list is sorted by Tag name.
+        :type sort_handles: bool
+        :param locale: The locale to use for collation.
+        :type locale: A GrampsLocale object.
 
         .. warning:: For speed the keys are directly returned, so handles are
                      bytes type
@@ -1106,6 +1132,12 @@ class DbReadBase:
         """
         raise NotImplementedError
 
+    def has_citation_handle(self, handle):
+        """
+        Return True if the handle exists in the current Citation database.
+        """
+        raise NotImplementedError
+
     def has_tag_handle(self, handle):
         """
         Return True if the handle exists in the current Tag database.
@@ -1374,7 +1406,7 @@ class DbReadBase:
 
     def set_mediapath(self, path):
         """
-        Set the default media path for database, path should be utf-8.
+        Set the default media path for database.
         """
         raise NotImplementedError
 
@@ -1401,14 +1433,6 @@ class DbReadBase:
         A name for this database on this computer.
         """
         raise NotImplementedError
-
-    def _hash_name(self, table, name):
-        """
-        Used in SQL functions to eval expressions involving selected
-        data.
-        """
-        name = self.get_table_func(table, "class_func").get_field_alias(name)
-        return name.replace(".", "__")
 
 
 class DbWriteBase(DbReadBase):
@@ -1735,6 +1759,18 @@ class DbWriteBase(DbReadBase):
         """
         raise NotImplementedError
 
+    def undo(self, update_history=True):
+        """
+        Undo last transaction.
+        """
+        raise NotImplementedError
+
+    def redo(self, update_history=True):
+        """
+        Redo last transaction.
+        """
+        raise NotImplementedError
+
     def write_version(self, name):
         """
         Write version number for a newly created DB.
@@ -1931,17 +1967,19 @@ class DbWriteBase(DbReadBase):
         """
         Get the total of primary objects.
         """
-        # TODO: should this include tags and citations?
         person_len = self.get_number_of_people()
         family_len = self.get_number_of_families()
         event_len = self.get_number_of_events()
-        source_len = self.get_number_of_sources()
         place_len = self.get_number_of_places()
         repo_len = self.get_number_of_repositories()
-        obj_len = self.get_number_of_media()
+        source_len = self.get_number_of_sources()
+        citation_len = self.get_number_of_citations()
+        media_len = self.get_number_of_media()
+        note_len = self.get_number_of_notes()
+        tag_len = self.get_number_of_tags()
 
-        return person_len + family_len + event_len + \
-               place_len + source_len + obj_len + repo_len
+        return (person_len + family_len + event_len + place_len + repo_len +
+                source_len + citation_len + media_len + note_len + tag_len)
 
     def set_birth_death_index(self, person):
         """
@@ -1964,23 +2002,3 @@ class DbWriteBase(DbReadBase):
 
         person.birth_ref_index = birth_ref_index
         person.death_ref_index = death_ref_index
-
-    def autobackup(self, user=None):
-        """
-        Backup the current file as a backup file.
-        """
-        from gramps.cli.user import User
-        if user is None:
-            user = User()
-        if self.is_open() and self.has_changed:
-            if user.uistate:
-                user.uistate.set_busy_cursor(True)
-                user.uistate.progress.show()
-                user.uistate.push_message(user.dbstate, _("Autobackup..."))
-            try:
-                self.backup(user=user)
-            except DbException as msg:
-                user.notify_error(_("Error saving backup data"), msg)
-            if user.uistate:
-                user.uistate.set_busy_cursor(False)
-                user.uistate.progress.hide()

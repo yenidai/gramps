@@ -134,15 +134,35 @@ class MergeFamilyQuery:
 
         with DbTxn(_('Merge Family'), self.database) as trans:
 
-            phoenix_father = self.database.get_person_from_handle(self.phoenix_fh)
-            titanic_father = self.database.get_person_from_handle(self.titanic_fh)
-            self.merge_person(phoenix_father, titanic_father, 'father', trans)
+            if self.phoenix_fh != self.titanic_fh:
+                if self.phoenix_fh:
+                    phoenix_father = self.database.get_person_from_handle(
+                        self.phoenix_fh)
+                else:
+                    phoenix_father = None
+                if self.titanic_fh:
+                    titanic_father = self.database.get_person_from_handle(
+                        self.titanic_fh)
+                else:
+                    titanic_father = None
+                self.merge_person(phoenix_father, titanic_father,
+                                  'father', trans)
 
-            phoenix_mother = self.database.get_person_from_handle(self.phoenix_mh)
-            titanic_mother = self.database.get_person_from_handle(self.titanic_mh)
+            if self.phoenix_mh != self.titanic_mh:
+                if self.phoenix_mh:
+                    phoenix_mother = self.database.get_person_from_handle(
+                        self.phoenix_mh)
+                else:
+                    phoenix_mother = None
+                if self.titanic_mh:
+                    titanic_mother = self.database.get_person_from_handle(
+                        self.titanic_mh)
+                else:
+                    titanic_mother = None
+                self.merge_person(phoenix_mother, titanic_mother,
+                                  'mother', trans)
             self.phoenix = self.database.get_family_from_handle(new_handle)
             self.titanic = self.database.get_family_from_handle(old_handle)
-            self.merge_person(phoenix_mother, titanic_mother, 'mother', trans)
 
             phoenix_father = self.database.get_person_from_handle(self.phoenix_fh)
             phoenix_mother = self.database.get_person_from_handle(self.phoenix_mh)
@@ -168,6 +188,8 @@ class MergeFamilyQuery:
             # replace the family in lds ordinances
             for (dummy, person_handle) in self.database.find_backlink_handles(
                     old_handle, ['Person']):
+                if person_handle in (self.titanic_fh, self.titanic_mh):
+                    continue
                 person = self.database.get_person_from_handle(person_handle)
                 person.replace_handle_reference('Family', old_handle,new_handle)
                 self.database.commit_person(person, trans)

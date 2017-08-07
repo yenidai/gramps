@@ -64,7 +64,7 @@ from ...config import config
 from ..docgen import PAPER_PORTRAIT
 from .. import _options
 from .. import MenuOptions
-from gramps.gen.utils.cast import get_type_converter
+from ...utils.cast import get_type_converter
 
 def escxml(word):
     return escape(word, {'"' : '&quot;'})
@@ -624,6 +624,9 @@ class EmptyDoc:
         pass
 
     def set_creator(self, creator):
+        pass
+
+    def set_rtl_doc(self, value): # crock!
         pass
 
     def open(self, filename):

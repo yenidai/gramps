@@ -137,18 +137,25 @@ def relative_path(original, base):
     base_list = [_f for _f in base_list if _f]
     target_list = [_f for _f in target_list if _f]
     i = -1
+    # base path is normcase (lower case on Windows) so compare target in lower
+    # on Windows as well
     for i in range(min(len(base_list), len(target_list))):
-        if base_list[i] != target_list[i]: break
+        if win():
+            if base_list[i].lower() != target_list[i].lower():
+                break
+        else:
+            if base_list[i] != target_list[i]:
+                break
     else:
         #if break did not happen we are here at end, and add 1.
         i += 1
-    rel_list = [os.pardir] * (len(base_list)-i) + target_list[i:]
+    rel_list = [os.pardir] * (len(base_list) - i) + target_list[i:]
     return os.path.join(*rel_list)
 
 def expand_path(path, normalize = True):
     """
     Expand environment variables in a path
-    Uses both the environment variables and the GRAMPS environment
+    Uses both the environment variables and the Gramps environment
     The expansion uses the str.format, e.g. "~/{GRAMPSHOME}/{VERSION}/filename.txt"
     We make the assumption that the user will not use a path that contain variable names
     (it is technically possible to use characters "{", "}" in  paths)

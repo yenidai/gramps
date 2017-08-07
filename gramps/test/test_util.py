@@ -32,10 +32,11 @@ import contextlib
 from io import TextIOWrapper, BytesIO, StringIO
 
 from gramps.gen.dbstate import DbState
-from gramps.cli.user import User
+from gramps.gen.user import User
 from gramps.cli.grampscli import CLIManager
 from gramps.cli.argparser import ArgParser
 from gramps.cli.arghandler import ArgHandler
+from gramps.gen.const import USER_DIRLIST
 
 # _caller_context is primarily here to support and document the process
 # of determining the test-module's directory.
@@ -171,70 +172,30 @@ def delete_tree(dir):
             % (dir, here, tmp))
     shutil.rmtree(sdir)
 
-# simplified logging
-# gramps-independent but gramps-compatible
-#
-# I don't see any need to inherit from logging.Logger
-# (at present, test code needs nothing fancy)
-# but that might be considered for future needs
-# NB: current code reflects limited expertise on the
-# uses of the logging module
-# ---------------------------------------------------------
-class TestLogger:
-    """this class mainly just encapsulates some globals
-    namely lfname, lfh  for a file log name and handle
-
-    provides simplified logging setup for test modules
-    that need to setup logging for modules under test
-    (just instantiate a TestLogger to avoid error
-     messages about logging handlers not available)
-
-    There is also a simple logfile capability, to allow
-    test modules to capture gramps logging output
-
-    Note that existing logging will still occur, possibly
-    resulting in console messages and popup dialogs
-    """
-    def __init__(self, lvl=logging.WARN):
-        logging.basicConfig(level=lvl)
-
-    def logfile_init(self, lfname):
-        """init or re-init a logfile"""
-        if getattr(self, "lfh", None):
-            logging.getLogger().handlers.remove(self.lfh)
-        if os.path.isfile(lfname):
-            os.unlink(lfname)
-        self.lfh = logging.FileHandler(lfname)
-        logging.getLogger().addHandler(self.lfh)
-        self.lfname = lfname
-
-    def logfile_getlines(self):
-        """get current content of logfile as list of lines"""
-        txt = []
-        if self.lfname and os.path.isfile(self.lfname):
-            txt = open(self.lfname).readlines()
-        return txt
-
 ### Support for testing CLI
 
 def new_exit(edit_code=None):
     raise SystemExit()
 
 @contextlib.contextmanager
-def capture(stdin):
+def capture(stdin, bytesio=False):
     oldout, olderr = sys.stdout, sys.stderr
     oldexit = sys.exit
     if stdin:
         oldin = sys.stdin
         sys.stdin = stdin
+    logger = logging.getLogger()
+    old_level = logger.getEffectiveLevel()
+    logger.setLevel(logging.CRITICAL)
     try:
-        output = [StringIO(), StringIO()]
+        output = [BytesIO() if bytesio else StringIO(), StringIO()]
         sys.stdout, sys.stderr = output
         sys.exit = new_exit
         yield output
     except SystemExit:
         pass
     finally:
+        logger.setLevel(old_level)
         sys.stdout, sys.stderr = oldout, olderr
         sys.exit = oldexit
         if stdin:
@@ -248,27 +209,42 @@ class Gramps:
         from gramps.cli.clidbman import CLIDbManager
         self.dbstate = dbstate or DbState()
         #we need a manager for the CLI session
-        self.user = user or User(auto_accept=True, quiet=False)
+        self.user = user or User()
         self.climanager = CLIManager(self.dbstate, setloader=True, user=self.user)
         self.clidbmanager = CLIDbManager(self.dbstate)
 
-    def run(self, *args, stdin=None):
-        with capture(stdin) as output:
-            #load the plugins
-            self.climanager.do_reg_plugins(self.dbstate, uistate=None)
-            # handle the arguments
-            args = [sys.executable] + list(args)
-            argparser = ArgParser(args)
-            argparser.need_gui() # initializes some variables
-            if argparser.errors:
-                print(argparser.errors, file=sys.stderr)
-            argparser.print_help()
-            argparser.print_usage()
-            handler = ArgHandler(self.dbstate, argparser, self.climanager)
-            # create a manager to manage the database
-            handler.handle_args_cli()
-            if handler.dbstate.is_open():
-                handler.dbstate.db.close()
+    def run(self, *args, stdin=None, bytesio=False):
+        with capture(stdin, bytesio=bytesio) as output:
+            try:
+                try:    # make sure we have user directories
+                    for path in USER_DIRLIST:
+                        if not os.path.isdir(path):
+                            os.makedirs(path)
+                except OSError as msg:
+                    print("Error creating user directories: " + str(msg))
+                except:
+                    print("Error reading configuration.", exc_info=True)
+                #load the plugins
+                self.climanager.do_reg_plugins(self.dbstate, uistate=None)
+                # handle the arguments
+                args = [sys.executable] + list(args)
+                argparser = ArgParser(args)
+                argparser.need_gui()  # initializes some variables
+                if argparser.errors:
+                    print(argparser.errors, file=sys.stderr)
+                argparser.print_help()
+                argparser.print_usage()
+                handler = ArgHandler(self.dbstate, argparser, self.climanager)
+                # create a manager to manage the database
+                handler.handle_args_cli()
+                if handler.dbstate.is_open():
+                    handler.dbstate.db.close()
+            except:
+                print("Exception in test:")
+                print("-" * 60)
+                traceback.print_exc(file=sys.stdout)
+                print("-" * 60)
+
         return output
 
 #===eof===

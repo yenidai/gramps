@@ -74,7 +74,7 @@ from gramps.gen.plug import CATEGORY_QR_MEDIA
 #-------------------------------------------------------------------------
 class MediaView(ListView):
     """
-    Provide the Media View interface on the GRAMPS main window. This allows
+    Provide the Media View interface on the Gramps main window. This allows
     people to manage all media items in their database. This is very similar
     to the other list based views, with the exception that it also has a
     thumbnail image at the top of the view that must be updated when the
@@ -353,7 +353,7 @@ class MediaView(ListView):
             "control key while clicking on the desired object.")
             ErrorDialog(msg, msg2, parent=self.uistate.window)
         else:
-            MergeMedia(self.dbstate, self.uistate, mlist[0], mlist[1])
+            MergeMedia(self.dbstate, self.uistate, [], mlist[0], mlist[1])
 
     def get_handle_from_gramps_id(self, gid):
         """

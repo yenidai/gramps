@@ -1,3 +1,22 @@
+#
+# Gramps - a GTK+/GNOME based genealogy program
+#
+# Copyright (C) 2015 Douglas S. Blank <doug.blank@gmail.com>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+#
 #-------------------------------------------------------------------------
 #
 # Standard python modules
@@ -5,7 +24,6 @@
 #-------------------------------------------------------------------------
 from abc import ABCMeta, abstractmethod
 import time
-import pickle
 from collections import deque
 
 class DbUndo(metaclass=ABCMeta):
@@ -14,33 +32,16 @@ class DbUndo(metaclass=ABCMeta):
     for use with a real backend.
     """
 
-    __slots__ = ('undodb', 'db', 'mapbase', 'undo_history_timestamp',
-                 'txn', 'undoq', 'redoq')
+    __slots__ = ('undodb', 'db', 'undo_history_timestamp', 'undoq', 'redoq')
 
-    def __init__(self, grampsdb):
+    def __init__(self, db):
         """
         Class constructor. Set up main instance variables
         """
-        self.db = grampsdb
+        self.db = db
         self.undoq = deque()
         self.redoq = deque()
         self.undo_history_timestamp = time.time()
-        self.txn = None
-        # N.B. the databases have to be in the same order as the numbers in
-        # xxx_KEY in gen/db/dbconst.py
-        self.mapbase = (
-                        self.db.person_map,
-                        self.db.family_map,
-                        self.db.source_map,
-                        self.db.event_map,
-                        self.db.media_map,
-                        self.db.place_map,
-                        self.db.repository_map,
-                        None,
-                        self.db.note_map,
-                        self.db.tag_map,
-                        self.db.citation_map,
-                        )
 
     def clear(self):
         """
@@ -49,7 +50,6 @@ class DbUndo(metaclass=ABCMeta):
         self.undoq.clear()
         self.redoq.clear()
         self.undo_history_timestamp = time.time()
-        self.txn = None
 
     def __enter__(self, value):
         """
@@ -141,31 +141,6 @@ class DbUndo(metaclass=ABCMeta):
         if self.db.readonly or self.redo_count == 0:
             return False
         return self._redo(update_history)
-
-    def undo_reference(self, data, handle, db_map):
-        """
-        Helper method to undo a reference map entry
-        """
-        if data is None:
-            db_map.delete(handle)
-        else:
-            db_map[handle] = data
-
-    def undo_data(self, data, handle, db_map, emit, signal_root):
-        """
-        Helper method to undo/redo the changes made
-        """
-        if data is None:
-            emit(signal_root + '-delete', ([handle],))
-            db_map.delete(handle)
-        else:
-            ex_data = db_map[handle]
-            if ex_data:
-                signal = signal_root + '-update'
-            else:
-                signal = signal_root + '-add'
-            db_map[handle] = data
-            emit(signal, ([handle],))
 
     undo_count = property(lambda self:len(self.undoq))
     redo_count = property(lambda self:len(self.redoq))

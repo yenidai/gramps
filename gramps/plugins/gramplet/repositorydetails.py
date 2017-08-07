@@ -32,7 +32,7 @@ from gi.repository import Pango
 #-------------------------------------------------------------------------
 from gramps.gen.lib import UrlType
 from gramps.gen.plug import Gramplet
-from gramps.gen.const import GRAMPS_LOCALE as glocale
+from gramps.gen.const import COLON, GRAMPS_LOCALE as glocale
 _ = glocale.translation.gettext
 
 class RepositoryDetails(Gramplet):
@@ -64,7 +64,7 @@ class RepositoryDetails(Gramplet):
         """
         Add a row to the table.
         """
-        label = Gtk.Label(label=title + ':', halign=Gtk.Align.END,
+        label = Gtk.Label(label=title + COLON, halign=Gtk.Align.END,
                           valign=Gtk.Align.START)
         label.show()
         value = Gtk.Label(label=value, halign=Gtk.Align.START)
@@ -79,7 +79,7 @@ class RepositoryDetails(Gramplet):
         list(map(self.grid.remove, self.grid.get_children()))
 
     def db_changed(self):
-        self.dbstate.db.connect('repository-update', self.update)
+        self.connect(self.dbstate.db, 'repository-update', self.update)
         self.connect_signal('Repository', self.update)
 
     def update_has_data(self):

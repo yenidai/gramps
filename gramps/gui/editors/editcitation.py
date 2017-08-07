@@ -142,12 +142,10 @@ class EditCitation(EditPrimary):
         and the glade interface. It is called by the base class L{EditPrimary},
         and overridden here.
         """
-        self.width_key = 'interface.citation-width'
-        self.height_key = 'interface.citation-height'
-
         self.glade = Glade()
         self.set_window(self.glade.toplevel, None,
                         self.get_menu_title())
+        self.setup_configs('interface.citation', 600, 450)
 
         self.share_btn = self.glade.get_object('select_source')
         self.add_del_btn = self.glade.get_object('add_del_source')
@@ -309,17 +307,17 @@ class EditCitation(EditPrimary):
             self.ok_button.set_sensitive(True)
             return
 
-        with DbTxn('', self.db) as trans:
-            if not self.obj.get_handle():
+        if not self.obj.handle:
+            with DbTxn(_("Add Citation (%s)") % self.obj.get_page(),
+                       self.db) as trans:
                 self.db.add_citation(self.obj, trans)
-                msg = _("Add Citation (%s)") % self.obj.get_page()
-            else:
-                if not self.obj.get_gramps_id():
-                    self.obj.set_gramps_id(
-                                    self.db.find_next_citation_gramps_id())
-                self.db.commit_citation(self.obj, trans)
-                msg = _("Edit Citation (%s)") % self.obj.get_page()
-            trans.set_description(msg)
+        else:
+            if self.data_has_changed():
+                with DbTxn(_("Edit Citation (%s)") % self.obj.get_page(),
+                           self.db) as trans:
+                    if not self.obj.get_gramps_id():
+                        self.obj.set_gramps_id(self.db.find_next_citation_gramps_id())
+                    self.db.commit_citation(self.obj, trans)
 
         if self.callback:
             self.callback(self.obj.get_handle())

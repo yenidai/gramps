@@ -89,13 +89,12 @@ class EditSource(EditPrimary):
         return title
 
     def _local_init(self):
-        self.width_key = 'interface.source-width'
-        self.height_key = 'interface.source-height'
         assert(self.obj)
 
         self.glade = Glade()
         self.set_window(self.glade.toplevel, None,
                         self.get_menu_title())
+        self.setup_configs('interface.source', 600, 450)
 
     def _connect_signals(self):
         self.define_ok_button(self.glade.get_object('ok'),self.save)
@@ -217,16 +216,17 @@ class EditSource(EditPrimary):
             self.ok_button.set_sensitive(True)
             return
 
-        with DbTxn('', self.db) as trans:
-            if not self.obj.get_handle():
+        if not self.obj.handle:
+            with DbTxn(_("Add Source (%s)") % self.obj.get_title(),
+                       self.db) as trans:
                 self.db.add_source(self.obj, trans)
-                msg = _("Add Source (%s)") % self.obj.get_title()
-            else:
-                if not self.obj.get_gramps_id():
-                    self.obj.set_gramps_id(self.db.find_next_source_gramps_id())
-                self.db.commit_source(self.obj, trans)
-                msg = _("Edit Source (%s)") % self.obj.get_title()
-            trans.set_description(msg)
+        else:
+            if self.data_has_changed():
+                with DbTxn(_("Edit Source (%s)") % self.obj.get_title(),
+                           self.db) as trans:
+                    if not self.obj.get_gramps_id():
+                        self.obj.set_gramps_id(self.db.find_next_source_gramps_id())
+                    self.db.commit_source(self.obj, trans)
 
         self._do_close()
         if self.callback:

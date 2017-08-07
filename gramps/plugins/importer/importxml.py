@@ -119,7 +119,7 @@ def importData(database, filename, user):
     database.smap = {}
     database.pmap = {}
     database.fmap = {}
-    line_cnt = 0
+    line_cnt = 1
     person_cnt = 0
 
     with ImportOpenFileContextManager(filename, user) as xml_file:
@@ -399,7 +399,10 @@ class ImportOpenFileContextManager:
 
     def __enter__(self):
         if self.filename == '-':
-            self.filehandle = sys.stdin.buffer
+            try:
+                self.filehandle = sys.stdin.buffer
+            except:
+                self.filehandle = sys.stdin
         else:
             self.filehandle = self.open_file(self.filename)
         return self.filehandle
@@ -484,7 +487,7 @@ class GrampsParser(UpdateCallback):
         # Similarly, if the data is imported into an empty family tree, we also
         # import the Researcher; if the tree was not empty, the existing
         # Researcher is retained
-        self.import_researcher = self.db.is_empty()
+        self.import_researcher = self.db.get_total() == 0
         self.ord = None
         self.objref = None
         self.object = None
@@ -897,7 +900,7 @@ class GrampsParser(UpdateCallback):
                 gramps_ids[id_] = gramps_id
         return gramps_ids[id_]
 
-    def parse(self, ifile, linecount=0, personcount=0):
+    def parse(self, ifile, linecount=1, personcount=0):
         """
         Parse the xml file
         :param ifile: must be a file handle that is already open, with position
@@ -1763,11 +1766,11 @@ class GrampsParser(UpdateCallback):
             val = attrs['value']
             match = self.grampsuri.match(val)
             if match:
-                target = {"Person":"person", "Family":"family",
-                          "Event":"event", "Place":"place", "Source":"source",
-                          "Citation":"citation",
-                          "Repository":"repository", "Media":"media",
-                          "Note":"note"}[str(match.group('object_class'))]
+                target = {"Person" : "person", "Family" : "family",
+                          "Event" : "event", "Place" : "place",
+                          "Source" : "source", "Citation" : "citation",
+                          "Repository" : "repository", "Media" : "media",
+                          "Note" : "note"}[str(match.group('object_class'))]
                 if match.group('handle') in self.import_handles:
                     if target in self.import_handles[match.group('handle')]:
                         val = "gramps://%s/handle/%s" % (
@@ -2496,7 +2499,7 @@ class GrampsParser(UpdateCallback):
         # TRANSLATORS: leave the {date} and {xml} untranslated in the format string,
         # but you may re-order them if needed.
         LOG.warning(_("Invalid date {date} in XML {xml}, preserving XML as text"
-            ).format(date=date_error.date.to_struct(), xml=xml))
+            ).format(date=date_error.date.__dict__, xml=xml))
         date_value.set(modifier=Date.MOD_TEXTONLY, text=xml)
 
     def start_datestr(self, attrs):

@@ -35,7 +35,7 @@ from gramps.gen.const import GRAMPS_LOCALE as glocale
 _ = glocale.translation.sgettext
 from ..views.treemodels.placemodel import PlaceTreeModel
 from .baseselector import BaseSelector
-from gramps.gui.display import display_help
+from ..display import display_help
 from gramps.gen.const import URL_MANUAL_SECT2
 
 #-------------------------------------------------------------------------
@@ -57,8 +57,7 @@ class SelectPlace(BaseSelector):
         """
         Perform local initialisation for this class
         """
-        self.width_key = 'interface.place-sel-width'
-        self.height_key = 'interface.place-sel-height'
+        self.setup_configs('interface.place-sel', 600, 450)
 
     def get_window_title(self):
         return _("Select Place")

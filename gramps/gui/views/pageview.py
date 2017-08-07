@@ -60,7 +60,7 @@ from ..actiongroup import ActionGroup
 #------------------------------------------------------------------------------
 class PageView(DbGUIElement, metaclass=ABCMeta):
     """
-    The PageView class is the base class for all Data Views in GRAMPS.  All
+    The PageView class is the base class for all Data Views in Gramps.  All
     Views should derive from this class. The ViewManager understands the public
     interface of this class
 
@@ -592,6 +592,7 @@ class ViewConfigureDialog(ConfigureDialog):
         ConfigureDialog.__init__(self, uistate, dbstate, configure_page_funcs,
                                  configobj, configmanager,
                                  dialogtitle=dialogtitle, on_close=on_close)
+        self.setup_configs('interface.viewconfiguredialog', 420, 500)
 
     def build_menu_names(self, obj):
         return (_('Configure %s View') % self.ident, None)

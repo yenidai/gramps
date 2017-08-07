@@ -103,12 +103,10 @@ class EditMedia(EditPrimary):
 
     def _local_init(self):
         assert(self.obj)
-        self.width_key = 'interface.media-width'
-        self.height_key = 'interface.media-height'
-
         self.glade = Glade()
         self.set_window(self.glade.toplevel,
                         None, self.get_menu_title())
+        self.setup_configs('interface.media', 650, 450)
 
     def _connect_signals(self):
         self.define_cancel_button(self.glade.get_object('button91'))
@@ -322,16 +320,17 @@ class EditMedia(EditPrimary):
 
         self.obj.set_path(path)
 
-        with DbTxn('', self.db) as trans:
-            if not self.obj.get_handle():
+        if not self.obj.handle:
+            with DbTxn(_("Add Media Object (%s)") % self.obj.get_description(),
+                       self.db) as trans:
                 self.db.add_media(self.obj, trans)
-                msg = _("Add Media Object (%s)") % self.obj.get_description()
-            else:
-                if not self.obj.get_gramps_id():
-                    self.obj.set_gramps_id(self.db.find_next_media_gramps_id())
-                self.db.commit_media(self.obj, trans)
-                msg = _("Edit Media Object (%s)") % self.obj.get_description()
-            trans.set_description(msg)
+        else:
+            if self.data_has_changed():
+                with DbTxn(_("Edit Media Object (%s)") % self.obj.get_description(),
+                           self.db) as trans:
+                    if not self.obj.get_gramps_id():
+                        self.obj.set_gramps_id(self.db.find_next_media_gramps_id())
+                    self.db.commit_media(self.obj, trans)
 
         if self.callback:
             self.callback(self.obj)

@@ -47,13 +47,13 @@ LOG = logging.getLogger(".gen.plug")
 #-------------------------------------------------------------------------
 from ._pluginreg import make_environment
 from ..const import USER_PLUGINS
-from gramps.version import VERSION_TUPLE
+from ...version import VERSION_TUPLE
 from . import BasePluginManager
 from ..utils.configmanager import safe_eval
 from ..config import config
+from ..constfunc import mac
 from ..const import GRAMPS_LOCALE as glocale
 _ = glocale.translation.sgettext
-from ..constfunc import mac
 
 #-------------------------------------------------------------------------
 #
@@ -194,7 +194,7 @@ def urlopen_maybe_no_check_cert(URL):
     return fp
 
 def available_updates():
-    whattypes = config.get('behavior.check-for-update-types')
+    whattypes = config.get('behavior.check-for-addon-update-types')
 
     LOG.debug("Checking for updated addons...")
     langs = glocale.get_language_list()
@@ -245,8 +245,8 @@ def available_updates():
                     version_str_to_tup(plugin.version, 3)):
                     LOG.debug("   Downloading '%s'..." % plugin_dict["z"])
                     if "update" in whattypes:
-                        if (not config.get('behavior.do-not-show-previously-seen-updates') or
-                             plugin_dict["i"] not in config.get('behavior.previously-seen-updates')):
+                        if (not config.get('behavior.do-not-show-previously-seen-addon-updates') or
+                             plugin_dict["i"] not in config.get('behavior.previously-seen-addon-updates')):
                             addon_update_list.append((_("Updated"),
                                                       "%s/download/%s" %
                                                       (config.get("behavior.addons-url"),
@@ -257,14 +257,14 @@ def available_updates():
             else:
                 LOG.debug("   '%s' is not installed" % plugin_dict["n"])
                 if "new" in whattypes:
-                    if (not config.get('behavior.do-not-show-previously-seen-updates') or
-                         plugin_dict["i"] not in config.get('behavior.previously-seen-updates')):
+                    if (not config.get('behavior.do-not-show-previously-seen-addon-updates') or
+                         plugin_dict["i"] not in config.get('behavior.previously-seen-addon-updates')):
                         addon_update_list.append((_("updates|New"),
                                                   "%s/download/%s" %
                                                   (config.get("behavior.addons-url"),
                                                    plugin_dict["z"]),
                                                   plugin_dict))
-        config.set("behavior.last-check-for-updates",
+        config.set("behavior.last-check-for-addon-updates",
                    datetime.date.today().strftime("%Y/%m/%d"))
         count += 1
         if fp:

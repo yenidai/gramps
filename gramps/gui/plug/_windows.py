@@ -77,6 +77,9 @@ def display_message(message):
     """
     print(message)
 
+RELOAD = 777    # A custom Gtk response_type for the Reload button
+
+
 #-------------------------------------------------------------------------
 #
 # PluginStatus: overview of all plugins
@@ -97,12 +100,13 @@ class PluginStatus(ManagedWindow):
 
         self.__pmgr = GuiPluginManager.get_instance()
         self.__preg = PluginRegister.get_instance()
-        self.set_window(Gtk.Dialog("", uistate.window,
-                                   Gtk.DialogFlags.DESTROY_WITH_PARENT,
-                                   (_('_Close'), Gtk.ResponseType.CLOSE)),
-                        None, self.title)
-        self.window.set_size_request(750, 400)
-        self.window.connect('response', self.close)
+        dialog = Gtk.Dialog(title="", transient_for=uistate.window,
+                            destroy_with_parent=True)
+        dialog.add_button(_('_Close'), Gtk.ResponseType.CLOSE)
+        self.set_window(dialog, None, self.title)
+
+        self.setup_configs('interface.pluginstatus', 750, 400)
+        self.window.connect('response', self.__on_dialog_button)
 
         notebook = Gtk.Notebook()
 
@@ -282,9 +286,7 @@ class PluginStatus(ManagedWindow):
         if __debug__:
             # Only show the "Reload" button when in debug mode
             # (without -O on the command line)
-            self.__reload_btn = Gtk.Button(label=_("Reload"))
-            self.window.action_area.add(self.__reload_btn)
-            self.__reload_btn.connect('clicked', self.__reload)
+            self.window.add_button(_("Reload"), RELOAD)
 
         #obtain hidden plugins from the pluginmanager
         self.hidden = self.__pmgr.get_hidden_plugin_ids()
@@ -292,6 +294,12 @@ class PluginStatus(ManagedWindow):
         self.window.show_all()
         self.__populate_lists()
         self.list_reg.columns_autosize()
+
+    def __on_dialog_button(self, dialog, response_id):
+        if response_id == Gtk.ResponseType.CLOSE:
+            self.close(dialog)
+        else:   # response_id == RELOAD
+            self.__reload(dialog)
 
     def __refresh_addon_list(self, obj):
         """
@@ -674,14 +682,15 @@ class PluginTrace(ManagedWindow):
 
     def __init__(self, uistate, track, data, name):
         self.name = name
-        title = "%s: %s" % (_("Plugin Error"), name)
+        title = _("%(str1)s: %(str2)s"
+                 ) % {'str1': _("Plugin Error"), 'str2': name}
         ManagedWindow.__init__(self, uistate, track, self)
 
         self.set_window(Gtk.Dialog("", uistate.window,
                                    Gtk.DialogFlags.DESTROY_WITH_PARENT,
                                    (_('_Close'), Gtk.ResponseType.CLOSE)),
                         None, title)
-        self.window.set_size_request(600, 400)
+        self.setup_configs('interface.plugintrace', 600, 400)
         self.window.connect('response', self.close)
 
         scrolled_window = Gtk.ScrolledWindow()
@@ -883,7 +892,7 @@ class ToolManagedWindowBase(ManagedWindow):
     def pre_run(self):
         from ..utils import ProgressMeter
         self.progress = ProgressMeter(self.get_title(),
-                                      parent=self.uistate.window)
+                                      parent=self.window)
 
     def run(self):
         raise NotImplementedError("tool needs to define a run() method")
@@ -1063,16 +1072,17 @@ class ToolManagedWindow(tool.Tool, ToolManagedWindowBase):
 # UpdateAddons
 #
 #-------------------------------------------------------------------------
-class UpdateAddons:
+class UpdateAddons(ManagedWindow):
 
-    def __init__(self, addon_update_list, parent_window):
+    def __init__(self, uistate, track, addon_update_list):
         self.title = _('Available Gramps Updates for Addons')
 
+        ManagedWindow.__init__(self, uistate, track, self, modal=True)
         glade = Glade("updateaddons.glade")
-        self.window = glade.toplevel
+        self.set_window(glade.toplevel, None, None)
         self.window.set_title(self.title)
-        self.window.set_size_request(750, 400)
-        self.window.set_transient_for(parent_window)
+        self.setup_configs("interface.updateaddons", 750, 400)
+        self.rescan = False
 
         apply_button = glade.get_object('apply')
         cancel_button = glade.get_object('cancel')
@@ -1102,9 +1112,9 @@ class UpdateAddons:
         last_category = None
         for (status,plugin_url,plugin_dict) in addon_update_list:
             count = get_count(addon_update_list, plugin_dict["t"])
-            category = _("%(adjective)s: %(addon)s") % {
-                "adjective": status,
-                "addon": _(plugin_dict["t"])}
+            # translators: needed for French, ignore otherwise
+            category = _("%(str1)s: %(str2)s") % {'str1' : status,
+                                                  'str2' : _(plugin_dict["t"])}
             if last_category != category:
                 last_category = category
                 node = self.list.add([False, # initially selected?
@@ -1126,13 +1136,12 @@ class UpdateAddons:
                 pos = iter
         if pos:
             self.list.selection.select_iter(pos)
+
+        self.show()
         self.window.run()
 
-    def close(self, widget):
-        """
-        Close the dialog.
-        """
-        self.window.destroy()
+    def build_menu_names(self, obj):
+        return (self.title, " ")
 
     def select_all_clicked(self, widget):
         """
@@ -1167,12 +1176,12 @@ class UpdateAddons:
             length, 1, # total, increment-by
             can_cancel=True)
         pm = ProgressMonitor(GtkProgressDialog,
-                             ("Title", self.window, Gtk.DialogFlags.MODAL))
+                             ("Title", self.parent_window, Gtk.DialogFlags.MODAL))
         pm.add_op(longop)
         count = 0
-        if not config.get('behavior.do-not-show-previously-seen-updates'):
+        if not config.get('behavior.do-not-show-previously-seen-addon-updates'):
             # reset list
-            config.get('behavior.previously-seen-updates')[:] = []
+            config.get('behavior.previously-seen-addon-updates')[:] = []
 
         iter = model.get_iter_first()
         errors = []
@@ -1189,8 +1198,8 @@ class UpdateAddons:
                     else:
                         errors.append(row[2])
                 else: # add to list of previously seen, but not installed
-                    if row[5] not in config.get('behavior.previously-seen-updates'):
-                        config.get('behavior.previously-seen-updates').append(row[5])
+                    if row[5] not in config.get('behavior.previously-seen-addon-updates'):
+                        config.get('behavior.previously-seen-addon-updates').append(row[5])
                 longop.heartbeat()
                 pm._get_dlg()._process_events()
             iter = model.iter_next(iter)
@@ -1201,20 +1210,21 @@ class UpdateAddons:
             OkDialog(_("Installation Errors"),
                      _("The following addons had errors: ") +
                      ", ".join(errors),
-                     parent=self.window)
+                     parent=self.parent_window)
         if count:
+            self.rescan = True
             OkDialog(_("Done downloading and installing addons"),
                      # translators: leave all/any {...} untranslated
                      "%s %s" % (ngettext("{number_of} addon was installed.",
                                          "{number_of} addons were installed.",
                                          count).format(number_of=count),
-                                _("You need to restart Gramps to see new views.")),
-                     parent=self.window)
+                        _("If you have installed a 'Gramps View', you will need to restart Gramps.")),
+                     parent=self.parent_window)
         else:
             OkDialog(_("Done downloading and installing addons"),
                      _("No addons were installed."),
-                     parent=self.window)
-        self.window.destroy()
+                     parent=self.parent_window)
+        self.close()
 
 #-------------------------------------------------------------------------
 #

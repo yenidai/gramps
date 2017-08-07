@@ -18,8 +18,11 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
+from gramps.gen.plug._pluginreg import register, STABLE, GENERAL
+from gramps.gen.const import GRAMPS_LOCALE as glocale
+_ = glocale.translation.gettext
 
-MODULE_VERSION="5.0"
+MODULE_VERSION="5.1"
 
 #------------------------------------------------------------------------
 #
@@ -38,7 +41,7 @@ fname = 'libcairodoc.py',
 authors = ["The Gramps project"],
 authors_email = ["http://gramps-project.org"],
 #load_on_reg = True
-  )
+)
 
 #------------------------------------------------------------------------
 #
@@ -55,7 +58,7 @@ status = STABLE,
 fname = 'libgedcom.py',
 authors = ["The Gramps project"],
 authors_email = ["http://gramps-project.org"],
-  )
+)
 
 #------------------------------------------------------------------------
 #
@@ -91,8 +94,9 @@ fname = 'libgrampsxml.py',
 authors = ["The Gramps project"],
 authors_email = ["http://gramps-project.org"],
 #load_on_reg = True
-  )
-  #------------------------------------------------------------------------
+)
+
+#------------------------------------------------------------------------
 #
 # libholiday
 #
@@ -108,7 +112,7 @@ fname = 'libholiday.py',
 authors = ["The Gramps project"],
 authors_email = ["http://gramps-project.org"],
 #load_on_reg = True
-  )
+)
 
 #------------------------------------------------------------------------
 #
@@ -126,7 +130,7 @@ fname = 'libhtmlbackend.py',
 authors = ["The Gramps project"],
 authors_email = ["http://gramps-project.org"],
 #load_on_reg = True
-  )
+)
 
 #------------------------------------------------------------------------
 #
@@ -162,7 +166,7 @@ fname = 'libhtml.py',
 authors = ["Gerald Britton"],
 authors_email = ["gerald.britton@gmail.com"],
 #load_on_reg = True
-  )
+)
 
 #------------------------------------------------------------------------
 #
@@ -234,6 +238,24 @@ authors_email = ["http://gramps-project.org"],
 
 #------------------------------------------------------------------------
 #
+# libprogen
+#
+#------------------------------------------------------------------------
+register(GENERAL,
+id    = 'libprogen',
+name  = "Pro-Gen lib",
+description =  _("Provides common functionality for Pro-Gen import"),
+version = '1.0',
+gramps_target_version = MODULE_VERSION,
+status = STABLE,
+fname = 'libprogen.py',
+authors = ["The Gramps project"],
+authors_email = ["http://gramps-project.org"],
+#load_on_reg = True
+)
+
+#------------------------------------------------------------------------
+#
 # libplaceview
 #
 #------------------------------------------------------------------------
@@ -265,6 +287,7 @@ fname = 'libsubstkeyword.py',
 authors = ["The Gramps project"],
 authors_email = ["http://gramps-project.org"],
 )
+
 #------------------------------------------------------------------------
 #
 # libtreebase

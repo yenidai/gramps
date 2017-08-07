@@ -107,12 +107,13 @@ class Calendar(Report):
         self.text3 = get_value('text3')
         self.filter_option = menu.get_option_by_name('filter')
         self.filter = self.filter_option.get_filter()
+
         pid = get_value('pid')
         self.center_person = self.database.get_person_from_gramps_id(pid)
-        if (self.center_person == None) :
-            raise ReportError(_("Person %s is not in the Database") % pid )
+        if self.center_person is None:
+            raise ReportError(_("Person %s is not in the Database") % pid)
 
-        self._locale = self.set_locale(get_value('trans'))
+        self.set_locale(get_value('trans'))
 
     def get_name(self, person, maiden_name = None):
         """ Return person's name, unless maiden_name given,
@@ -311,10 +312,7 @@ class Calendar(Report):
         """
         db = self.database
         people = db.iter_person_handles()
-        with self._user.progress(_('Calendar Report'),
-                                 _('Applying Filter...'),
-                                 db.get_number_of_people()) as step:
-            people = self.filter.apply(self.database, people, step)
+        people = self.filter.apply(self.database, people, user=self._user)
 
         ngettext = self._locale.translation.ngettext # to see "nearby" comments
 
@@ -480,6 +478,23 @@ class CalendarOptions(MenuReportOptions):
         menu.add_option(category_name, "pid", self.__pid)
         self.__pid.connect('value-changed', self.__update_filters)
 
+        text1 = StringOption(_("Text Area 1"), _(_TITLE1))
+        text1.set_help(_("First line of text at bottom of calendar"))
+        add_option("text1", text1)
+
+        text2 = StringOption(_("Text Area 2"), _(_TITLE2))
+        text2.set_help(_("Second line of text at bottom of calendar"))
+        add_option("text2", text2)
+
+        text3 = StringOption(_("Text Area 3"), URL_HOMEPAGE)
+        text3.set_help(_("Third line of text at bottom of calendar"))
+        add_option("text3", text3)
+
+        ##########################
+        category_name = _("Report Options (2)")
+        add_option = partial(menu.add_option, category_name)
+        ##########################
+
         self._nf = stdoptions.add_name_format_option(menu, category_name)
         self._nf.connect('value-changed', self.__update_filters)
 
@@ -494,7 +509,7 @@ class CalendarOptions(MenuReportOptions):
         stdoptions.add_localization_option(menu, category_name)
 
         ##########################
-        category_name = _("Content Options")
+        category_name = _("Content")
         add_option = partial(menu.add_option, category_name)
         ##########################
 
@@ -520,42 +535,32 @@ class CalendarOptions(MenuReportOptions):
         start_dow = EnumeratedListOption(_("First day of week"), 1)
         long_days = date_displayer.long_days
         for count in range(1, 8):
-            # conversion between gramps numbering (sun=1) and iso numbering (mon=1) of weekdays below
-            start_dow.add_item((count+5) % 7 + 1, long_days[count].capitalize())
-        start_dow.set_help(_("Select the first day of the week for the calendar"))
+            # conversion between gramps numbering (sun=1)
+            # and iso numbering (mon=1) of weekdays below
+            start_dow.add_item((count + 5) % 7 + 1,
+                               long_days[count].capitalize())
+        start_dow.set_help(
+            _("Select the first day of the week for the calendar"))
         add_option("start_dow", start_dow)
 
         maiden_name = EnumeratedListOption(_("Birthday surname"), "own")
-        maiden_name.add_item("spouse_first", _("Wives use husband's surname (from first family listed)"))
-        maiden_name.add_item("spouse_last", _("Wives use husband's surname (from last family listed)"))
+        maiden_name.add_item(
+            "spouse_first",
+            _("Wives use husband's surname (from first family listed)"))
+        maiden_name.add_item(
+            "spouse_last",
+            _("Wives use husband's surname (from last family listed)"))
         maiden_name.add_item("own", _("Wives use their own surname"))
         maiden_name.set_help(_("Select married women's displayed surname"))
         add_option("maiden_name", maiden_name)
 
         birthdays = BooleanOption(_("Include birthdays"), True)
-        birthdays.set_help(_("Include birthdays in the calendar"))
+        birthdays.set_help(_("Whether to include birthdays"))
         add_option("birthdays", birthdays)
 
         anniversaries = BooleanOption(_("Include anniversaries"), True)
-        anniversaries.set_help(_("Include anniversaries in the calendar"))
+        anniversaries.set_help(_("Whether to include anniversaries"))
         add_option("anniversaries", anniversaries)
-
-        ##########################
-        category_name = _("Text Options")
-        add_option = partial(menu.add_option, _("Text Options"))
-        ##########################
-
-        text1 = StringOption(_("Text Area 1"), _(_TITLE1))
-        text1.set_help(_("First line of text at bottom of calendar"))
-        add_option("text1", text1)
-
-        text2 = StringOption(_("Text Area 2"), _(_TITLE2))
-        text2.set_help(_("Second line of text at bottom of calendar"))
-        add_option("text2", text2)
-
-        text3 = StringOption(_("Text Area 3"), URL_HOMEPAGE)
-        text3.set_help(_("Third line of text at bottom of calendar"))
-        add_option("text3", text3)
 
     def __update_filters(self):
         """
@@ -565,8 +570,8 @@ class CalendarOptions(MenuReportOptions):
         person = self.__db.get_person_from_gramps_id(gid)
         nfv = self._nf.get_value()
         filter_list = utils.get_person_filters(person,
-                                                     include_single=False,
-                                                     name_format=nfv)
+                                               include_single=False,
+                                               name_format=nfv)
         self.__filter.set_filters(filter_list)
 
     def __filter_changed(self):
@@ -575,12 +580,11 @@ class CalendarOptions(MenuReportOptions):
         disable the person option
         """
         filter_value = self.__filter.get_value()
-        if filter_value in [1, 2, 3, 4]:
-            # Filters 1, 2, 3 and 4 rely on the center person
-            self.__pid.set_available(True)
-        else:
-            # The rest don't
+        if filter_value == 0: # "Entire Database" (as "include_single=False")
             self.__pid.set_available(False)
+        else:
+            # The other filters need a center person (assume custom ones too)
+            self.__pid.set_available(True)
 
     def make_my_style(self, default_style, name, description,
                       size=9, font=FONT_SERIF, justified ="left",

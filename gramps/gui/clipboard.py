@@ -38,6 +38,8 @@ from gi.repository import GObject
 from gi.repository import Gdk
 from gi.repository import Gtk
 from gi.repository import GdkPixbuf
+from gi.repository import Pango
+import cairo
 
 #-------------------------------------------------------------------------
 #
@@ -117,6 +119,7 @@ def map2class(target):
          'place-link': ClipPlace,
          'placeref': ClipPlaceRef,
          'note-link': ClipNote,
+         'TEXT': ClipText,
          }
     return d[target] if target in d else None
 
@@ -1018,6 +1021,7 @@ class ClipboardListView:
 
         self._widget.connect('drag-data-get', self.object_drag_data_get)
         self._widget.connect('drag-begin', self.object_drag_begin)
+        self._widget.connect_after('drag-begin', self.object_after_drag_begin)
         self._widget.connect('drag-data-received',
                              self.object_drag_data_received)
         self._widget.connect('drag-end', self.object_drag_end)
@@ -1203,6 +1207,34 @@ class ClipboardListView:
         """ Handle the beginning of a drag operation. """
         pass
 
+    def object_after_drag_begin(self, widget, drag_context):
+        tree_selection = widget.get_selection()
+        model, paths = tree_selection.get_selected_rows()
+        if len(paths) == 1:
+            path = paths[0]
+            node = model.get_iter(path)
+            target = model.get_value(node, 0)
+            if target == "TEXT":
+                layout = widget.create_pango_layout(model.get_value(node,4))
+                layout.set_alignment(Pango.Alignment.CENTER)
+                width, height = layout.get_pixel_size()
+                surface = cairo.ImageSurface(cairo.FORMAT_RGB24,
+                                                  width, height)
+                ctx = cairo.Context(surface)
+                style_ctx = self._widget.get_style_context()
+                Gtk.render_background(style_ctx, ctx, 0, 0, width, height)
+                ctx.save()
+                Gtk.render_layout(style_ctx, ctx, 0, 0 , layout)
+                ctx.restore()
+                Gtk.drag_set_icon_surface(drag_context, surface)
+            else:
+                try:
+                    if map2class(target):
+                        Gtk.drag_set_icon_pixbuf(drag_context,
+                                                 map2class(target).ICON, 0, 0)
+                except:
+                    Gtk.drag_set_icon_default(drag_context)
+
     def object_drag_end(self, widget, drag_context):
         """ Handle the end of a drag operation. """
         pass
@@ -1218,7 +1250,10 @@ class ClipboardListView:
             path = paths[0]
             node = model.get_iter(path)
             o = model.get_value(node,1)
-            sel_data.set(tgs[0], 8, o.pack())
+            if model.get_value(node, 0) == 'TEXT':
+                sel_data.set_text(o._value, -1)
+            else:
+                sel_data.set(tgs[0], 8, o.pack())
         elif len(paths) > 1:
             raw_list = []
             for path in paths:
@@ -1250,7 +1285,7 @@ class ClipboardListView:
         if mac():
             # context is empty on mac due to a bug, work around this
             # Note that this workaround code works fine in linux too as
-            # we know very well inside of GRAMPS what sel_data can be, so
+            # we know very well inside of Gramps what sel_data can be, so
             # we can anticipate on it, instead of letting the wrapper handle
             # it. This is less clean however !
             # See http://www.gramps-project.org/bugs/view.php?id=3089 for
@@ -1279,54 +1314,57 @@ class ClipboardListView:
         # Just select the first match.
         wrapper_class = self._target_type_to_wrapper_class_map[
                                                     str(possible_wrappers[0])]
-        o = wrapper_class(self.dbstate, sel_data)
-        if title:
-            o._title = title
-        if value:
-            o._value = value
-        if dbid:
-            o._dbid = dbid
-        if dbname:
-            o._dbname = dbname
+        try:
+            o = wrapper_class(self.dbstate, sel_data)
+            if title:
+                o._title = title
+            if value:
+                o._value = value
+            if dbid:
+                o._dbid = dbid
+            if dbname:
+                o._dbname = dbname
 
-        # If the wrapper object is a subclass of ClipDropList then
-        # the drag data was a list of objects and we need to decode
-        # all of them.
-        if isinstance(o,ClipDropList):
-            o_list = o.get_objects()
-        else:
-            o_list = [o]
-        for o in o_list:
-            if o.__class__.DRAG_TARGET is None:
-                continue
-            data = [o.__class__.DRAG_TARGET.drag_type, o, None,
-                    o._type, o._value, o._dbid, o._dbname]
-            contains = model_contains(model, data)
-            if ((context.action if hasattr(context, "action") else context.get_actions())
-                != Gdk.DragAction.MOVE) and contains:
-                continue
-            drop_info = widget.get_dest_row_at_pos(x, y)
-            if drop_info:
-                path, position = drop_info
-                node = model.get_iter(path)
-                if (position == Gtk.TreeViewDropPosition.BEFORE
-                    or position == Gtk.TreeViewDropPosition.INTO_OR_BEFORE):
-                    model.insert_before(node, data)
-                else:
-                    model.insert_after(node, data)
+            # If the wrapper object is a subclass of ClipDropList then
+            # the drag data was a list of objects and we need to decode
+            # all of them.
+            if isinstance(o,ClipDropList):
+                o_list = o.get_objects()
             else:
-                model.append(data)
+                o_list = [o]
+            for o in o_list:
+                if o.__class__.DRAG_TARGET is None:
+                    continue
+                data = [o.__class__.DRAG_TARGET.drag_type, o, None,
+                        o._type, o._value, o._dbid, o._dbname]
+                contains = model_contains(model, data)
+                if ((context.action if hasattr(context, "action") else context.get_actions())
+                    != Gdk.DragAction.MOVE) and contains:
+                    continue
+                drop_info = widget.get_dest_row_at_pos(x, y)
+                if drop_info:
+                    path, position = drop_info
+                    node = model.get_iter(path)
+                    if (position == Gtk.TreeViewDropPosition.BEFORE
+                        or position == Gtk.TreeViewDropPosition.INTO_OR_BEFORE):
+                        model.insert_before(node, data)
+                    else:
+                        model.insert_after(node, data)
+                else:
+                    model.append(data)
 
-        # FIXME: there is one bug here: if you multi-select and drop
-        # on self, then it moves the first, and copies the rest.
+            # FIXME: there is one bug here: if you multi-select and drop
+            # on self, then it moves the first, and copies the rest.
 
-        if ((context.action if hasattr(context, "action") else context.get_actions()) ==
-            Gdk.DragAction.MOVE):
-            context.finish(True, True, time)
+            if ((context.action if hasattr(context, "action") else context.get_actions()) ==
+                Gdk.DragAction.MOVE):
+                context.finish(True, True, time)
 
-        # remember time for double drop workaround.
-        self._previous_drop_time = realTime
-        return o_list
+            # remember time for double drop workaround.
+            self._previous_drop_time = realTime
+            return o_list
+        except EOFError:
+            return None
 
     # proxy methods to provide access to the real widget functions.
 
@@ -1383,12 +1421,9 @@ class ClipboardWindow(ManagedWindow):
         self.database_changed(self.dbstate.db)
         self.dbstate.connect('database-changed', self.database_changed)
 
-        self.width_key = 'interface.clipboard-width'
-        self.height_key = 'interface.clipboard-height'
-
         self.top = Glade()
         self.set_window(self.top.toplevel, None, None, msg=_("Clipboard"))
-        self._set_size()
+        self.setup_configs('interface.clipboard', 500, 300)
 
         self.clear_all_btn = self.top.get_object("btn_clear_all")
         self.clear_btn = self.top.get_object("btn_clear")
@@ -1450,7 +1485,7 @@ class ClipboardWindow(ManagedWindow):
             self.clear_btn.set_sensitive(True)
 
     def on_help_clicked(self, obj):
-        """Display the relevant portion of GRAMPS manual"""
+        """Display the relevant portion of Gramps manual"""
         display_help(webpage=WIKI_HELP_PAGE, section=WIKI_HELP_SEC)
 
     def on_clear_clicked(self, obj):
@@ -1479,7 +1514,7 @@ class MultiTreeView(Gtk.TreeView):
         Gtk.TreeView.__init__(self)
         self.connect('button_press_event', self.on_button_press)
         self.connect('button_release_event', self.on_button_release)
-        self.connect('grab_broken_event', self.on_grab_broken)
+        self.connect('drag-end', self.on_drag_end)
         self.connect('key_press_event', self.key_press_event)
         self.defer_select = False
 
@@ -1581,7 +1616,7 @@ class MultiTreeView(Gtk.TreeView):
 
         self.defer_select=False
 
-    def on_grab_broken(self, widget, event):
+    def on_drag_end(self, widget, event):
         # re-enable selection
         self.get_selection().set_select_function(lambda *ignore: True, None)
         self.defer_select=False

@@ -186,6 +186,7 @@ class ChangeNames(tool.BatchTool, ManagedWindow):
 
         self.list = self.top.get_object("list")
         self.set_window(window,self.top.get_object('title'),self.label)
+        self.setup_configs('interface.changenames', 500, 450)
 
         self.model = Gtk.ListStore(GObject.TYPE_BOOLEAN, GObject.TYPE_STRING,
                                    GObject.TYPE_STRING)
@@ -228,7 +229,7 @@ class ChangeNames(tool.BatchTool, ManagedWindow):
         return (self.label,None)
 
     def on_help_clicked(self, obj):
-        """Display the relevant portion of GRAMPS manual"""
+        """Display the relevant portion of Gramps manual"""
         display_help(WIKI_HELP_PAGE , WIKI_HELP_SEC)
 
     def on_ok_clicked(self, obj):

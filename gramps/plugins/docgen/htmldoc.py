@@ -93,8 +93,8 @@ class HtmlDoc(BaseDoc, TextDoc):
     Fontface is removed. Size, italic, bold, margins, borders are retained
     """
 
-    def __init__(self, styles, paper_style):
-        BaseDoc.__init__(self, styles, None)
+    def __init__(self, styles, paper_style, uistate=None):
+        BaseDoc.__init__(self, styles, None, uistate=uistate)
         self.style_declaration = ''
         self.htmllist = []
         self._backend = None
@@ -150,7 +150,7 @@ class HtmlDoc(BaseDoc, TextDoc):
         fname2 = '/'.join([self._backend.datadir(), _TEXTDOCSCREEN])
         fname3 = '/'.join([self._backend.datadir(), _HTMLSCREEN])
 
-        # links for GRAMPS favicon and stylesheets
+        # links for Gramps favicon and stylesheets
         links = Html('link', rel='shortcut icon', href=fname1,
                      type='image/x-icon') + (
                          Html('link', rel='stylesheet', href=fname2,

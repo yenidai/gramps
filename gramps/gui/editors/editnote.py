@@ -174,13 +174,11 @@ class EditNote(EditPrimary):
         and overridden here.
 
         """
-        self.width_key = 'interface.note-width'
-        self.height_key = 'interface.note-height'
-
         self.top = Glade()
 
         win = self.top.toplevel
         self.set_window(win, None, self.get_menu_title())
+        self.setup_configs('interface.note', 700, 500)
 
 
         vboxnote =  self.top.get_object('vbox131')
@@ -274,6 +272,7 @@ class EditNote(EditPrimary):
         if not self.dbstate.db.readonly:
             vbox = self.top.get_object('container')
             vbox.pack_start(self.texteditor.get_toolbar(), False, False, 0)
+            self.texteditor.set_transient_parent(self.window)
 
         # setup initial values for textview and textbuffer
         if self.obj:
@@ -303,6 +302,11 @@ class EditNote(EditPrimary):
             self.obj.set_styledtext(text)
             _LOG.debug(str(text))
 
+    def close(self, *obj):
+        """Called when cancel button clicked."""
+        self.update_note()
+        super().close()
+
     def save(self, *obj):
         """Save the data."""
         self.ok_button.set_sensitive(False)
@@ -329,16 +333,17 @@ class EditNote(EditPrimary):
             self.ok_button.set_sensitive(True)
             return
 
-        with DbTxn('', self.db) as trans:
-            if not self.obj.get_handle():
+        if not self.obj.handle:
+            with DbTxn(_("Add Note"),
+                       self.db) as trans:
                 self.db.add_note(self.obj, trans)
-                msg = _("Add Note")
-            else:
-                if not self.obj.get_gramps_id():
-                    self.obj.set_gramps_id(self.db.find_next_note_gramps_id())
-                self.db.commit_note(self.obj, trans)
-                msg = _("Edit Note")
-            trans.set_description(msg)
+        else:
+            if self.data_has_changed():
+                with DbTxn(_("Edit Note"),
+                           self.db) as trans:
+                    if not self.obj.get_gramps_id():
+                        self.obj.set_gramps_id(self.db.find_next_note_gramps_id())
+                    self.db.commit_note(self.obj, trans)
 
         if self.callback:
             self.callback(self.obj.get_handle())

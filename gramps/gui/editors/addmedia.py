@@ -88,7 +88,7 @@ class AddMedia(ManagedWindow):
         The media is updated with the information, and on save, the
         callback function is called
         """
-        ManagedWindow.__init__(self, uistate, track, self)
+        ManagedWindow.__init__(self, uistate, track, self, modal=True)
 
         self.dbase = dbstate.db
         self.obj = media
@@ -102,9 +102,7 @@ class AddMedia(ManagedWindow):
             self.glade.toplevel,
             self.glade.get_object('title'),
             _('Select a media object'))
-        self.height_key = 'interface.addmedia-height'
-        self.width_key = 'interface.addmedia-width'
-        self._set_size()
+        self.setup_configs('interface.addmedia', 700, 500)
 
         self.description = self.glade.get_object("photoDescription")
         self.image = self.glade.get_object("image")
@@ -142,7 +140,6 @@ class AddMedia(ManagedWindow):
                                              section=WIKI_HELP_SEC))
         self.cancel_button.connect('clicked', self.close)
         self.show()
-        self.modal_call()
 
     def build_menu_names(self, obj):
         """
@@ -194,6 +191,7 @@ class AddMedia(ManagedWindow):
         self._cleanup_on_exit()
         if self.callback:
             self.callback(self.obj)
+        self.close()
 
     def on_name_changed(self, *obj):
         """

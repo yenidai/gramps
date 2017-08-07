@@ -41,9 +41,9 @@ import uuid
 #-------------------------------------------------------------------------
 from .git_revision import get_git_revision
 from .constfunc import get_env_var
-from gramps.version import VERSION, VERSION_TUPLE, major_version
-from gramps.gen.utils.resourcepath import ResourcePath
-from gramps.gen.utils.grampslocale import GrampsLocale
+from ..version import VERSION, VERSION_TUPLE, major_version
+from .utils.resourcepath import ResourcePath
+from .utils.grampslocale import GrampsLocale
 
 #-------------------------------------------------------------------------
 #
@@ -59,8 +59,8 @@ PROGRAM_NAME = "Gramps"
 #-------------------------------------------------------------------------
 URL_HOMEPAGE = "http://gramps-project.org/"
 URL_MAILINGLIST = "http://sourceforge.net/mail/?group_id=25770"
-URL_BUGHOME = "http://bugs.gramps-project.org"
-URL_BUGTRACKER = "http://bugs.gramps-project.org/bug_report_page.php"
+URL_BUGHOME = "http://gramps-project.org/bugs"
+URL_BUGTRACKER = "http://gramps-project.org/bugs/bug_report_page.php"
 URL_WIKISTRING = "http://gramps-project.org/wiki/index.php?title="
 URL_MANUAL_PAGE = "Gramps_%s_Wiki_Manual" % major_version
 URL_MANUAL_DATA = '%s_-_Entering_and_editing_data:_detailed' % URL_MANUAL_PAGE
@@ -134,7 +134,7 @@ USER_DIRLIST = (USER_HOME, HOME_DIR, VERSION_DIR, ENV_DIR, TEMP_DIR, THUMB_DIR,
 ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
 
 sys.path.insert(0, ROOT_DIR)
-git_revision = get_git_revision(ROOT_DIR)
+git_revision = get_git_revision(ROOT_DIR).replace('\n', '')
 if sys.platform == 'win32' and git_revision == "":
     git_revision = get_git_revision(os.path.split(ROOT_DIR)[1])
 VERSION += git_revision
@@ -217,7 +217,7 @@ GTK_GETTEXT_DOMAIN = 'gtk30'
 #
 #-------------------------------------------------------------------------
 COPYRIGHT_MSG = "© 2001-2006 Donald N. Allingham\n" \
-                "© 2007-2016 The Gramps Developers"
+                "© 2007-2017 The Gramps Developers"
 COMMENTS = _("Gramps\n (Genealogical Research and Analysis "
              "Management Programming System)\n"
              "is a personal genealogy program.")
@@ -253,6 +253,7 @@ NO_GIVEN = "(%s)" % _("given-name|none")
 ARABIC_COMMA = "،"
 ARABIC_SEMICOLON = "؛"
 DOCGEN_OPTIONS = 'Docgen Options'
+COLON = _(':') # translators: needed for French, ignore otherwise
 
 #-------------------------------------------------------------------------
 #
@@ -265,7 +266,6 @@ LONGOPTS = [
     "class=",
     "config=",
     "debug=",
-    "databases",
     "display=",
     "disable-sound",
     "disable-crash-dialog",
@@ -300,12 +300,11 @@ LONGOPTS = [
     "remove=",
     "usage",
     "version",
-    "qml",
     "yes",
     "quiet",
 ]
 
-SHORTOPTS = "O:C:i:e:f:a:p:d:c:r:blLthuv?syq"
+SHORTOPTS = "O:C:i:e:f:a:p:d:c:r:lLthuv?syq"
 
 GRAMPS_UUID = uuid.UUID('516cd010-5a41-470f-99f8-eb22f1098ad6')
 

@@ -75,8 +75,7 @@ class RecordsReport(Report):
         Report.__init__(self, database, options, user)
         menu = options.menu
 
-        lang = options.menu.get_option_by_name('trans').get_value()
-        self._locale = self.set_locale(lang)
+        self.set_locale(options.menu.get_option_by_name('trans').get_value())
 
         stdoptions.run_private_data_option(self, menu)
         living_opt = stdoptions.run_living_people_option(self, menu,
@@ -113,7 +112,7 @@ class RecordsReport(Report):
         records = find_records(self.database, self.filter,
                                self.top_size, self.callname,
                                trans_text=self._, name_format=self._nf,
-                               living_mode=self._lv)
+                               living_mode=self._lv, user=self._user)
 
         self.doc.start_paragraph('REC-Title')
         title = self._("Records")
@@ -226,15 +225,6 @@ class RecordsReportOptions(MenuReportOptions):
         menu.add_option(category_name, "pid", self.__pid)
         self.__pid.connect('value-changed', self.__update_filters)
 
-        self._nf = stdoptions.add_name_format_option(menu, category_name)
-        self._nf.connect('value-changed', self.__update_filters)
-
-        self.__update_filters()
-
-        stdoptions.add_private_data_option(menu, category_name)
-
-        stdoptions.add_living_people_option(menu, category_name)
-
         top_size = NumberOption(_("Number of ranks to display"), 3, 1, 100)
         menu.add_option(category_name, "top_size", top_size)
 
@@ -250,14 +240,35 @@ class RecordsReportOptions(MenuReportOptions):
         footer = StringOption(_("Footer text"), "")
         menu.add_option(category_name, "footer", footer)
 
+        category_name = _("Report Options (2)")
+
+        self._nf = stdoptions.add_name_format_option(menu, category_name)
+        self._nf.connect('value-changed', self.__update_filters)
+
+        self.__update_filters()
+
+        stdoptions.add_private_data_option(menu, category_name)
+
+        stdoptions.add_living_people_option(menu, category_name)
+
         stdoptions.add_localization_option(menu, category_name)
 
+        p_count = 0
+        for (text, varname, default) in RECORDS:
+            if varname.startswith('person'):
+                p_count += 1
+        p_half = p_count // 2
+        p_idx = 0
         for (text, varname, default) in RECORDS:
             option = BooleanOption(_(text), default)
             if varname.startswith('person'):
-                category_name = _("Person Records")
+                if p_idx >= p_half:
+                    category_name = _("Person 2")
+                else:
+                    category_name = _("Person 1")
+                p_idx += 1
             elif varname.startswith('family'):
-                category_name = _("Family Records")
+                category_name = _("Family")
             menu.add_option(category_name, varname, option)
 
     def __update_filters(self):
@@ -268,8 +279,8 @@ class RecordsReportOptions(MenuReportOptions):
         person = self.__db.get_person_from_gramps_id(gid)
         nfv = self._nf.get_value()
         filter_list = utils.get_person_filters(person,
-                                                     include_single=False,
-                                                     name_format=nfv)
+                                               include_single=False,
+                                               name_format=nfv)
         self.__filter.set_filters(filter_list)
 
     def __filter_changed(self):
@@ -278,12 +289,11 @@ class RecordsReportOptions(MenuReportOptions):
         disable the person option
         """
         filter_value = self.__filter.get_value()
-        if filter_value in [1, 2, 3, 4]:
-            # Filters 1, 2, 3 and 4 rely on the center person
-            self.__pid.set_available(True)
-        else:
-            # The rest don't
+        if filter_value == 0: # "Entire Database" (as "include_single=False")
             self.__pid.set_available(False)
+        else:
+            # The other filters need a center person (assume custom ones too)
+            self.__pid.set_available(True)
 
     def make_default_style(self, default_style):
 
@@ -314,7 +324,7 @@ class RecordsReportOptions(MenuReportOptions):
         para = ParagraphStyle()
         para.set_font(font)
         para.set_top_margin(utils.pt2cm(6))
-        para.set_description(_('The style used for headings.'))
+        para.set_description(_('The style used for the section headers.'))
         default_style.add_paragraph_style('REC-Heading', para)
 
         font = FontStyle()

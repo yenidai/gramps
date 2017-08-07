@@ -44,12 +44,13 @@ _SPINNER = ['|', '/', '-', '\\']
 # User class
 #
 #-------------------------------------------------------------------------
-class User(user.User):
+class User(user.UserBase):
     """
     This class provides a means to interact with the user via CLI.
-    It implements the interface in :class:`.gen.user.User`
+    It implements the interface in :class:`.gen.user.UserBase`
     """
-    def __init__(self, callback=None, error=None, auto_accept=False, quiet=False,
+    def __init__(self, callback=None, error=None,
+                 auto_accept=False, quiet=False,
                  uistate=None, dbstate=None):
         """
         Init.
@@ -57,7 +58,7 @@ class User(user.User):
         :param error: If given, notify_error delegates to this callback
         :type error: function(title, error)
         """
-        user.User.__init__(self, callback, error, uistate, dbstate)
+        user.UserBase.__init__(self, callback, error, uistate, dbstate)
         self.steps = 0;
         self.current_step = 0;
         self._input = input
@@ -145,14 +146,14 @@ class User(user.User):
                 m = message,
                 y = accept_text,
                 n = reject_text)
-        print (text, file = self._fileout) # TODO python3 add flush=True
+        print (text, file = self._fileout) # TODO: python 3.3 add flush=True
         try:
             reply = self._input()
         except EOFError:
             reply = ""
-        ### Trun response into True/False:
+        ### Turn response into True/False:
         if reply == "":
-            return default
+            return default == accept_label
         elif reply == accept_label:
             return True
         else:
@@ -168,7 +169,7 @@ class User(user.User):
         :type warning: str
         :returns: none
         """
-        self._fileout.write("%s %s" % (title, warning))
+        self._fileout.write("%s\n%s\n" % (title, warning))
 
     def notify_error(self, title, error=""):
         """

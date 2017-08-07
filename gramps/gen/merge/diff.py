@@ -22,98 +22,18 @@
 This package implements an object difference engine.
 """
 
-import os
+import json
 
-from gramps.cli.user import User
-from ..dbstate import DbState
-from gramps.cli.grampscli import CLIManager
-from ..plug import BasePluginManager
-from gramps.gen.db import make_database
+from ..db.utils import import_as_dict
+from ..lib.serialize import to_json
 from ..const import GRAMPS_LOCALE as glocale
 _ = glocale.translation.gettext
 
-def parse(string):
+def to_struct(obj):
     """
-    Break a string up into a struct-path. Used by get_schema() and setitem().
-
-    >>> parse("primary_name.first_name.startswith('Sarah')")
-    ["primary_name", "first_name", "startswith", "('Sarah')"]
-    >>> parse("primary_name.surname_list[0].surname.startswith('Smith')")
-    ["primary_name", "surname_list", "[0]", "surname", "startswith", "('Smith')"]
+    Convert an object into a struct.
     """
-    # FIXME: handle nested same-structures, (len(list) + 1)
-    retval = []
-    stack = []
-    current = ""
-    for p in range(len(string)):
-        c = string[p]
-        if c == "]":
-            if stack and stack[-1] == "[": # end
-                stack.pop(-1)
-            current += c
-            retval.append(current)
-            current = ""
-        elif c == "[":
-            stack.append(c)
-            retval.append(current)
-            current = ""
-            current += c
-        elif c in ["'", '"']:
-            if stack and stack[-1] == c: # end
-                stack.pop(-1)
-                current += c
-                if stack and stack[-1] in ["'", '"', '[']: # in quote or args
-                    pass
-                else:
-                    current += c
-                    retval.append(current)
-                    current = ""
-            else:                        # start
-                stack.append(c)
-                current += c
-        elif c == ".":
-            retval.append(current)
-            current = ""
-        elif stack and stack[-1] in ["'", '"', '[']: # in quote or args
-            current += c
-        else:
-            current += c
-    if current:
-        retval.append(current)
-    return retval
-
-def import_as_dict(filename, user=None, skp_imp_adds=True):
-    """
-    Import the filename into a InMemoryDB and return it.
-    """
-    if user is None:
-        user = User()
-    db = make_database("inmemorydb")
-    db.load(None)
-    db.set_feature("skip-import-additions", skp_imp_adds)
-    dbstate = DbState()
-    climanager = CLIManager(dbstate, setloader=False, user=user)
-    climanager.do_reg_plugins(dbstate, None)
-    pmgr = BasePluginManager.get_instance()
-    (name, ext) = os.path.splitext(os.path.basename(filename))
-    format = ext[1:].lower()
-    import_list = pmgr.get_reg_importers()
-    for pdata in import_list:
-        if format == pdata.extension:
-            mod = pmgr.load_plugin(pdata)
-            if not mod:
-                for item in pmgr.get_fail_list():
-                    name, error_tuple, pdata = item
-                    # (filename, (exception-type, exception, traceback), pdata)
-                    etype, exception, traceback = error_tuple
-                    #print("ERROR:", name, exception)
-                return False
-            import_function = getattr(mod, pdata.import_function)
-            results = import_function(db, filename, user)
-            if results is None:
-                return None
-            return db
-    return None
+    return json.loads(to_json(obj))
 
 def diff_dates(json1, json2):
     """
@@ -170,7 +90,7 @@ def diff_items(path, json1, json2):
         #print("   new:", json2)
         return True
 
-def diff_dbs(db1, db2, user=None):
+def diff_dbs(db1, db2, user):
     """
     1. new objects => mark for insert
     2. deleted objects, no change locally after delete date => mark
@@ -180,8 +100,6 @@ def diff_dbs(db1, db2, user=None):
     4. updated objects => do a diff on differences, mark origin
        values as new data
     """
-    if user is None:
-        user = User()
     missing_from_old = []
     missing_from_new = []
     diffs = []
@@ -190,41 +108,45 @@ def diff_dbs(db1, db2, user=None):
         for item in ['Person', 'Family', 'Source', 'Citation', 'Event', 'Media',
                      'Place', 'Repository', 'Note', 'Tag']:
             step()
-            handles1 = sorted([handle for handle in db1.get_table_func(item,"handles_func")()])
-            handles2 = sorted([handle for handle in db2.get_table_func(item,"handles_func")()])
+
+            handles_func1 = db1.get_table_metadata(item)["handles_func"]
+            handles_func2 = db2.get_table_metadata(item)["handles_func"]
+            handle_func1 = db1.get_table_metadata(item)["handle_func"]
+            handle_func2 = db2.get_table_metadata(item)["handle_func"]
+
+            handles1 = sorted([handle for handle in handles_func1()])
+            handles2 = sorted([handle for handle in handles_func2()])
             p1 = 0
             p2 = 0
             while p1 < len(handles1) and p2 < len(handles2):
                 if handles1[p1] == handles2[p2]: # in both
-                    item1 = db1.get_table_func(item,"handle_func")(handles1[p1])
-                    item2 = db2.get_table_func(item,"handle_func")(handles2[p2])
-                    diff = diff_items(item, item1.to_struct(), item2.to_struct())
+                    item1 = handle_func1(handles1[p1])
+                    item2 = handle_func2(handles2[p2])
+                    diff = diff_items(item, to_struct(item1), to_struct(item2))
                     if diff:
                         diffs += [(item, item1, item2)]
                     # else same!
                     p1 += 1
                     p2 += 1
                 elif handles1[p1] < handles2[p2]: # p1 is mssing in p2
-                    item1 = db1.get_table_func(item,"handle_func")(handles1[p1])
+                    item1 = handle_func1(handles1[p1])
                     missing_from_new += [(item, item1)]
                     p1 += 1
                 elif handles1[p1] > handles2[p2]: # p2 is mssing in p1
-                    item2 = db2.get_table_func(item,"handle_func")(handles2[p2])
+                    item2 = handle_func2(handles2[p2])
                     missing_from_old += [(item, item2)]
                     p2 += 1
             while p1 < len(handles1):
-                item1 = db1.get_table_func(item,"handle_func")(handles1[p1])
+                item1 = handle_func1(handles1[p1])
                 missing_from_new += [(item, item1)]
                 p1 += 1
             while p2 < len(handles2):
-                item2 = db2.get_table_func(item,"handle_func")(handles2[p2])
+                item2 = handle_func2(handles2[p2])
                 missing_from_old += [(item, item2)]
                 p2 += 1
     return diffs, missing_from_old, missing_from_new
 
-def diff_db_to_file(old_db, filename, user=None):
-    if user is None:
-        user = User()
+def diff_db_to_file(old_db, filename, user):
     # First, get data as a InMemoryDB
     new_db = import_as_dict(filename, user, user)
     if new_db is not None:

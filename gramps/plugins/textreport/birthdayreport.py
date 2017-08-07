@@ -92,7 +92,6 @@ class BirthdayReport(Report):
         self.year = mgobn('year')
         self.country = mgobn('country')
         self.anniversaries = mgobn('anniversaries')
-        self.start_dow = mgobn('start_dow')
         self.maiden_name = mgobn('maiden_name')
         self.alive = mgobn('alive')
         self.birthdays = mgobn('birthdays')
@@ -103,14 +102,13 @@ class BirthdayReport(Report):
         self.filter = self.filter_option.get_filter()
         pid = mgobn('pid')
 
-        lang = menu.get_option_by_name('trans').get_value()
-        self._locale = self.set_locale(lang)
+        self.set_locale(menu.get_option_by_name('trans').get_value())
 
         stdoptions.run_name_format_option(self, menu)
 
         self.center_person = self.database.get_person_from_gramps_id(pid)
-        if (self.center_person == None) :
-            raise ReportError(_("Person %s is not in the Database") % pid )
+        if self.center_person is None:
+            raise ReportError(_("Person %s is not in the Database") % pid)
 
     def get_name(self, person, maiden_name = None):
         """
@@ -255,11 +253,7 @@ class BirthdayReport(Report):
         and text.
         """
         people = self.database.iter_person_handles()
-        with self._user.progress(_('Birthday and Anniversary Report'),
-                                  _('Applying Filter...'),
-                                  self.database.get_number_of_people()) as step:
-            people = self.filter.apply(self.database, people,
-                                       step)
+        people = self.filter.apply(self.database, people, user=self._user)
 
         ngettext = self._locale.translation.ngettext # to see "nearby" comments
         rel_calc = get_relationship_calculator(reinit=True,
@@ -414,77 +408,16 @@ class BirthdayOptions(MenuReportOptions):
         """ Add the options for the text birthday report """
         category_name = _("Report Options")
 
-        year = NumberOption(_("Year of report"), time.localtime()[0],
-                            1000, 3000)
-        year.set_help(_("Year of report"))
-        menu.add_option(category_name, "year", year)
-
         self.__filter = FilterOption(_("Filter"), 0)
         self.__filter.set_help(
-               _("Select filter to restrict people that appear on report"))
+            _("Select the filter to be applied to the report."))
         menu.add_option(category_name, "filter", self.__filter)
+        self.__filter.connect('value-changed', self.__filter_changed)
 
-        self.__pid = PersonOption(_("Center Person"))
-        self.__pid.set_help(_("The center person for the report"))
+        self.__pid = PersonOption(_("Filter Person"))
+        self.__pid.set_help(_("The center person for the filter."))
         menu.add_option(category_name, "pid", self.__pid)
         self.__pid.connect('value-changed', self.__update_filters)
-
-        self._nf = stdoptions.add_name_format_option(menu, category_name)
-        self._nf.connect('value-changed', self.__update_filters)
-
-        self.__update_filters()
-
-        stdoptions.add_private_data_option(menu, category_name)
-
-        alive = BooleanOption(_("Include only living people"), True)
-        alive.set_help(_("Include only living people in the report"))
-        menu.add_option(category_name, "alive", alive)
-
-        country = EnumeratedListOption(_("Country for holidays"), 0)
-        holiday_table = libholiday.HolidayTable()
-        countries = holiday_table.get_countries()
-        countries.sort()
-        if (len(countries) == 0 or
-            (len(countries) > 0 and countries[0] != '')):
-            countries.insert(0, '')
-        count = 0
-        for c in  holiday_table.get_countries():
-            country.add_item(count, c)
-            count += 1
-        country.set_help(_("Select the country to see associated holidays"))
-        menu.add_option(category_name, "country", country)
-
-        start_dow = EnumeratedListOption(_("First day of week"), 1)
-        long_days = date_displayer.long_days
-        for count in range(1, 8):
-            # conversion between gramps numbering (sun=1) and iso numbering (mon=1) of weekdays below
-            start_dow.add_item((count+5) % 7 + 1, long_days[count].capitalize())
-        start_dow.set_help(_("Select the first day of the week for the report"))
-        menu.add_option(category_name, "start_dow", start_dow)
-
-        maiden_name = EnumeratedListOption(_("Birthday surname"), "own")
-        maiden_name.add_item("spouse_first", _("Wives use husband's surname (from first family listed)"))
-        maiden_name.add_item("spouse_last", _("Wives use husband's surname (from last family listed)"))
-        maiden_name.add_item("own", _("Wives use their own surname"))
-        maiden_name.set_help(_("Select married women's displayed surname"))
-        menu.add_option(category_name, "maiden_name", maiden_name)
-
-        birthdays = BooleanOption(_("Include birthdays"), True)
-        birthdays.set_help(_("Include birthdays in the report"))
-        menu.add_option(category_name, "birthdays", birthdays)
-
-        anniversaries = BooleanOption(_("Include anniversaries"), True)
-        anniversaries.set_help(_("Include anniversaries in the report"))
-        menu.add_option(category_name, "anniversaries", anniversaries)
-
-        option = BooleanOption(_("Include relationships to center person"),
-                               False)
-        option.set_help(_("Include relationships to center person (slower)"))
-        menu.add_option(category_name, "relationships", option)
-
-        stdoptions.add_localization_option(menu, category_name)
-
-        category_name = _("Text Options")
 
         titletext = StringOption(_("Title text"), _(_TITLE0))
         titletext.set_help(_("Title of report"))
@@ -502,6 +435,67 @@ class BirthdayOptions(MenuReportOptions):
         text3.set_help(_("Third line of text at bottom of report"))
         menu.add_option(category_name, "text3", text3)
 
+        category_name = _("Report Options (2)")
+
+        self._nf = stdoptions.add_name_format_option(menu, category_name)
+        self._nf.connect('value-changed', self.__update_filters)
+
+        stdoptions.add_private_data_option(menu, category_name)
+
+        alive = BooleanOption(_("Include only living people"), True)
+        alive.set_help(_("Include only living people in the report"))
+        menu.add_option(category_name, "alive", alive)
+
+        self.__update_filters()
+
+        stdoptions.add_localization_option(menu, category_name)
+
+        category_name = _("Content")
+
+        year = NumberOption(_("Year of report"), time.localtime()[0],
+                            1000, 3000)
+        year.set_help(_("Year of report"))
+        menu.add_option(category_name, "year", year)
+
+        country = EnumeratedListOption(_("Country for holidays"), 0)
+        holiday_table = libholiday.HolidayTable()
+        countries = holiday_table.get_countries()
+        countries.sort()
+        if (len(countries) == 0 or
+            (len(countries) > 0 and countries[0] != '')):
+            countries.insert(0, '')
+        count = 0
+        for c in countries:
+            country.add_item(count, c)
+            count += 1
+        country.set_help(_("Select the country to see associated holidays"))
+        menu.add_option(category_name, "country", country)
+
+        maiden_name = EnumeratedListOption(_("Birthday surname"), "own")
+        maiden_name.add_item(
+            "spouse_first",
+            _("Wives use husband's surname (from first family listed)"))
+        maiden_name.add_item(
+            "spouse_last",
+            _("Wives use husband's surname (from last family listed)"))
+        maiden_name.add_item("own", _("Wives use their own surname"))
+        maiden_name.set_help(_("Select married women's displayed surname"))
+        menu.add_option(category_name, "maiden_name", maiden_name)
+
+        birthdays = BooleanOption(_("Include birthdays"), True)
+        birthdays.set_help(_("Whether to include birthdays"))
+        menu.add_option(category_name, "birthdays", birthdays)
+
+        anniversaries = BooleanOption(_("Include anniversaries"), True)
+        anniversaries.set_help(_("Whether to include anniversaries"))
+        menu.add_option(category_name, "anniversaries", anniversaries)
+
+        show_relships = BooleanOption(
+            _("Include relationship to center person"), False)
+        show_relships.set_help(
+            _("Whether to include relationships to the center person"))
+        menu.add_option(category_name, "relationships", show_relships)
+
     def __update_filters(self):
         """
         Update the filter list based on the selected person
@@ -510,9 +504,21 @@ class BirthdayOptions(MenuReportOptions):
         person = self.__db.get_person_from_gramps_id(gid)
         nfv = self._nf.get_value()
         filter_list = utils.get_person_filters(person,
-                                                     include_single=False,
-                                                     name_format=nfv)
+                                               include_single=False,
+                                               name_format=nfv)
         self.__filter.set_filters(filter_list)
+
+    def __filter_changed(self):
+        """
+        Handle filter change. If the filter is not specific to a person,
+        disable the person option
+        """
+        filter_value = self.__filter.get_value()
+        if filter_value == 0: # "Entire Database" (as "include_single=False")
+            self.__pid.set_available(False)
+        else:
+            # The other filters need a center person (assume custom ones too)
+            self.__pid.set_available(True)
 
     def make_my_style(self, default_style, name, description,
                       size=9, font=FONT_SERIF, justified ="left",

@@ -21,8 +21,10 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
+from gramps.gen.const import GRAMPS_LOCALE as glocale
+_ = glocale.translation.gettext
 
-MODULE_VERSION="5.0"
+MODULE_VERSION="5.1"
 
 #------------------------------------------------------------------------
 #
@@ -164,6 +166,21 @@ authors = ["B. Malengier"],
 authors_email = ["benny.malengier@gmail.com"],
 viewclass = 'FanChartDescView',
 stock_icon = 'gramps-fanchartdesc',
+  )
+
+register(VIEW,
+id    = 'fanchart2wayview',
+name  = _("2-Way Fan"),
+category = ("Ancestry", _("Charts")),
+description =  _("Showing ascendants and descendants through a fanchart"),
+version = '1.0',
+gramps_target_version = MODULE_VERSION,
+status = STABLE,
+fname = 'fanchart2wayview.py',
+authors = ["B. Jacquet"],
+authors_email = ["bastien.jacquet_dev@m4x.org"],
+viewclass = 'FanChart2WayView',
+stock_icon = 'gramps-fanchart2way',
   )
 
 register(VIEW,

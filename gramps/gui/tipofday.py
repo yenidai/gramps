@@ -66,6 +66,7 @@ class TipOfDay(ManagedWindow):
                         xml.get_object("title"),
                         _("Tip of the Day"),
                         _("Tip of the Day"))
+        self.setup_configs('interface.tipofday', 550, 350)
 
         self.tip = xml.get_object("tip")
         self.use = xml.get_object('usetips')
@@ -95,7 +96,7 @@ class TipOfDay(ManagedWindow):
         self.index = 0
         self.next_tip_cb()
 
-        window.show_all()
+        self.show()
 
     def escape(self,text):
         text = text.replace('&','&amp;');       # Must be first

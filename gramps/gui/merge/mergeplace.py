@@ -63,8 +63,9 @@ class MergePlace(ManagedWindow):
     """
     Displays a dialog box that allows the places to be combined into one.
     """
-    def __init__(self, dbstate, uistate, handle1, handle2, callback=None):
-        ManagedWindow.__init__(self, uistate, [], self.__class__)
+    def __init__(self, dbstate, uistate, track, handle1, handle2,
+                 callback=None):
+        ManagedWindow.__init__(self, uistate, track, self.__class__)
         self.dbstate = dbstate
         database = dbstate.db
         self.callback = callback
@@ -75,9 +76,7 @@ class MergePlace(ManagedWindow):
         self.set_window(self._gladeobj.toplevel,
                         self.get_widget('place_title'),
                         _("Merge Places"))
-        self.height_key = 'interface.merge-place-height'
-        self.width_key = 'interface.merge-place-width'
-        self._set_size()
+        self.setup_configs('interface.merge-place', 500, 250)
 
         # Detailed selection widgets
         if not config.get('preferences.place-auto'):
@@ -155,7 +154,7 @@ class MergePlace(ManagedWindow):
         rbutton_label1 = self.get_widget("label_handle_btn1")
         rbutton_label2 = self.get_widget("label_handle_btn2")
         rbutton_label1.set_label(title1 + " [" + gramps1 + "] " + str(self.pl1.place_type))
-        rbutton_label2.set_label(title2 + " [" + gramps2 + "] " + str(self.pl1.place_type))
+        rbutton_label2.set_label(title2 + " [" + gramps2 + "] " + str(self.pl2.place_type))
         rbutton1.connect("toggled", self.on_handle1_toggled)
 
         self.connect_button('place_help', self.cb_help)

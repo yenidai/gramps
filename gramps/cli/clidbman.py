@@ -49,6 +49,7 @@ from gramps.gen.plug import BasePluginManager
 from gramps.gen.config import config
 from gramps.gen.constfunc import win
 from gramps.gen.db.dbconst import DBLOGNAME
+from gramps.gen.db.utils import make_database
 from gramps.gen.const import GRAMPS_LOCALE as glocale
 _ = glocale.translation.gettext
 
@@ -160,7 +161,7 @@ class CLIDbManager:
                 dbid = file.read().strip()
         if not self.is_locked(dirpath):
             try:
-                database = self.dbstate.make_database(dbid)
+                database = make_database(dbid)
                 database.load(dirpath, None, update=False)
                 retval = database.get_summary()
                 database.close(update=False)
@@ -189,13 +190,13 @@ class CLIDbManager:
                           dbname == name)
                          for dbname in database_names])):
                 summary = self.get_dbdir_summary(dirpath, name)
-                print(_("Family Tree \"%s\":") % summary[_("Family Tree")])
+                print(_('Family Tree "%s":') % summary[_("Family Tree")])
                 for item in sorted(summary):
                     if item != "Family Tree":
                         # translators: needed for French, ignore otherwise
-                        print(_("   %(item)s: %(summary)s") % {
-                            'item' : item,
-                            'summary' : summary[item]})
+                        print('   ' + _("%(str1)s: %(str2)s"
+                                       ) % {'str1' : item,
+                                            'str2' : summary[item]})
 
     def family_tree_summary(self, database_names=None):
         """
@@ -307,7 +308,7 @@ class CLIDbManager:
             # write the version number into metadata
             if dbid is None:
                 dbid = "bsddb"
-            newdb = self.dbstate.make_database(dbid)
+            newdb = make_database(dbid)
             newdb.write_version(new_path)
 
         (tval, last) = time_val(new_path)
@@ -357,7 +358,11 @@ class CLIDbManager:
                     temp_fp.write(data)
                     url_fp.close()
                     from  gramps.gen.db.dbconst import BDBVERSFN
+                    # name not set
+                    (name, ext) = os.path.splitext(os.path.basename(filename))
                     versionpath = os.path.join(name, BDBVERSFN)
+                    # dbase not set
+                    dbase = make_database("bsddb")
                     _LOG.debug("Write bsddb version %s", str(dbase.version()))
                     with open(versionpath, "w") as version_file:
                         version_file.write(str(dbase.version()))
@@ -376,7 +381,7 @@ class CLIDbManager:
 
                 ## Use bsddb, for now, because we assumed that above.
                 dbid = "bsddb" ## config.get('database.backend')
-                dbase = self.dbstate.make_database(dbid)
+                dbase = make_database(dbid)
                 dbase.load(new_path, user.callback)
 
                 import_function = plugin.get_import_function()

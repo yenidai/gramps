@@ -1,4 +1,4 @@
-﻿#! /usr/bin/env python3
+#! /usr/bin/env python3
 """ Test program for import modules
 """
 #
@@ -25,16 +25,19 @@ import unittest
 import os
 import sys
 import re
+import locale
 from time import localtime, strptime
 from unittest.mock import patch
 #import logging
 
-from gramps.gen.merge.diff import diff_dbs, import_as_dict
+from gramps.gen.utils.config import config
+config.set('preferences.date-format', 0)
+from gramps.gen.db.utils import import_as_dict
+from gramps.gen.merge.diff import diff_dbs, to_struct
 from gramps.gen.simple import SimpleAccess
 from gramps.gen.utils.id import set_det_id
-from gramps.cli.user import User
+from gramps.gen.user import User
 from gramps.gen.const import TEMP_DIR, DATA_DIR
-from gramps.gen.utils.config import config
 from gramps.test.test_util import capture
 from gramps.plugins.export.exportxml import XmlWriter
 
@@ -46,6 +49,9 @@ TEST_DIR = os.path.abspath(os.path.join(DATA_DIR, "tests"))
 # ------------------------------------------------------------------
 #  Local Functions
 # ------------------------------------------------------------------
+
+# These tests assume a US date and time format.
+locale.setlocale(locale.LC_ALL, 'en_US.utf8')
 
 def mock_time(*args):
     """
@@ -59,7 +65,7 @@ def mock_localtime(*args):
     """
     return strptime("25 Dec 1999", "%d %b %Y")
 
-class CompleteCheck(unittest.TestCase):
+class TestImports(unittest.TestCase):
     """The test class cases will be dynamically created at import time from
     files to be tested.  The following defs are used by the test cases
     """
@@ -74,8 +80,8 @@ class CompleteCheck(unittest.TestCase):
         if diffs:
             for diff in diffs:
                 obj_type, item1, item2 = diff
-                msg = self._report_diff(obj_type, item1.to_struct(),
-                                        item2.to_struct())
+                msg = self._report_diff(obj_type, to_struct(item1),
+                                        to_struct(item2))
                 if msg != "":
                     if hasattr(item1, "gramps_id"):
                         self.msg += "%s: %s  handle=%s\n" % \
@@ -192,10 +198,12 @@ def make_tst_function(tstfile, file_name):
     @patch('gramps.plugins.db.bsddb.write.time')
     @patch('gramps.gen.utils.unknown.localtime')
     @patch('gramps.gen.utils.unknown.time')
-    def tst(self, mocktime, mockltime, mockwtime, mockdtime):
+    @patch('time.localtime')
+    def tst(self, mockptime, mocktime, mockltime, mockwtime, mockdtime):
         """ This compares the import file with the expected result '.gramps'
         file.
         """
+        mockptime.side_effect = mock_localtime
         mocktime.side_effect = mock_time
         mockltime.side_effect = mock_localtime
         mockwtime.side_effect = mock_time
@@ -211,6 +219,8 @@ def make_tst_function(tstfile, file_name):
             skp_imp_adds = False
         else:
             skp_imp_adds = True
+            config.set('preferences.default-source', False)
+            config.set('preferences.tag-on-import', False)
         try:
             os.remove(fres)
             os.remove(fout)
@@ -219,7 +229,7 @@ def make_tst_function(tstfile, file_name):
         #logger.info("\n**** %s ****", tstfile)
         set_det_id(True)
         with capture(None) as output:
-            self.user = User(quiet=True)
+            self.user = User()
             self.database1 = import_as_dict(fn1, self.user,
                                             skp_imp_adds=skp_imp_adds)
             set_det_id(True)
@@ -274,39 +284,27 @@ if __name__ == "__main__":
             del sys.argv[i]
             del sys.argv[i]
 # The following code dynamically creates the methods for each test file.
-# The methods are inserted at load time into the 'CompleteCheck' class
+# The methods are inserted at load time into the 'TestImports' class
 # via the modules' globals, taking advantage that they are a dict.
 if _tstfile:                             # single file mode
     (fname, ext) = os.path.splitext(os.path.basename(_tstfile))
     test_func = make_tst_function(_tstfile, fname)
-    clname = 'Import_{0}'.format(_tstfile)
-    globals()[clname] = type(clname,
-                             (CompleteCheck,),
-                             {"testit": test_func})
+    tname = "test_" + _tstfile.replace("-", "_").replace(".", "_")
+    test_func.__name__ = tname
+    test_func.__doc__ = tname
+    setattr(TestImports, tname, test_func)
 else:
-    _tstfiles = []
     for _tstfile in os.listdir(TEST_DIR):
         (fname, ext) = os.path.splitext(os.path.basename(_tstfile))
-        if ext in (".gramps", ".difs", ".bak") \
-                or not fname.startswith("imp_"):
+        if _tstfile != "SAMPLE.DEF" and (ext in (".gramps", ".difs", ".bak") \
+                or not fname.startswith("imp_")):
             continue
         test_func = make_tst_function(_tstfile, fname)
-        clname = 'Import_{0}'.format(_tstfile)
-        globals()[clname] = type(clname,
-                                 (CompleteCheck,),
-                                 {"testit": test_func})
-        _tstfiles.append(clname)
-
-    def test_import_classes():
-        """
-        Dynamic Test-function lister for
-        nosetests. Creates an instance for each
-        import test, and yields the function to
-        test.
-        """
-        for clname in _tstfiles:
-            instance = globals()[clname]()
-            yield instance.testit
+        tname = "test_" + _tstfile.replace("-", "_").replace(".", "_")
+        test_func.__name__ = tname
+        test_func.__doc__ = tname
+        setattr(TestImports, tname, test_func)
+    test_func = None  # keep nosetest from finding last one again
 
 if __name__ == "__main__":
     unittest.main()

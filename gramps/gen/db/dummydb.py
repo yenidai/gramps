@@ -63,10 +63,12 @@ from functools import wraps
 # Gramps libraries
 #
 #-------------------------------------------------------------------------
-from gramps.gen.db.base import DbReadBase
-from gramps.gen.db.dbconst import DBLOGNAME
-from gramps.gen.errors import HandleError
-from gramps.gen.utils.callback import Callback
+from .base import DbReadBase
+from .dbconst import DBLOGNAME
+from ..errors import HandleError
+from ..utils.callback import Callback
+from ..lib import Researcher
+from ..const import GRAMPS_LOCALE as glocale
 
 LOG = logging.getLogger(DBLOGNAME)
 
@@ -210,24 +212,16 @@ class DummyDb(M_A_M_B("NewBaseClass", (DbReadBase, Callback, object,), {})):
 
     __signals__ = {}
 
-    @classmethod
-    def get_class_summary(cls):
-        """
-        Return a diction of information about this database.
-        """
-        summary = {
-            "Database type": cls.__name__,
-        }
-        return summary
-
     def __init__(self):
         """
         Create a new DummyDb instance.
         """
-        DbReadBase.__init__(self)
         Callback.__init__(self)
+        self.basedb = None
+        self.__feature = {} # {"feature": VALUE, ...}
         self.db_is_open = False
         self.readonly = True
+        self.name_formats = []
         self.bookmarks = Bookmarks()
         self.family_bookmarks = Bookmarks()
         self.event_bookmarks = Bookmarks()
@@ -237,6 +231,7 @@ class DummyDb(M_A_M_B("NewBaseClass", (DbReadBase, Callback, object,), {})):
         self.repo_bookmarks = Bookmarks()
         self.media_bookmarks = Bookmarks()
         self.note_bookmarks = Bookmarks()
+        self.owner = Researcher()
 
     def get_feature(self, feature):
         """
@@ -536,14 +531,17 @@ class DummyDb(M_A_M_B("NewBaseClass", (DbReadBase, Callback, object,), {})):
         if not self.db_is_open:
             LOG.warning("database is closed")
         LOG.warning("handle %s does not exist in the dummy database", handle)
-        raise HandleError('Handle %s not found' % handle.encode('utf-8'))
+        raise HandleError('Handle %s not found' % handle)
 
-    def get_family_handles(self, sort_handles=False):
+    def get_family_handles(self, sort_handles=False, locale=glocale):
         """
         Return a list of database handles, one handle for each Family in
         the database.
 
-        If sort_handles is True, the list is sorted by surnames.
+        :param sort_handles: If True, the list is sorted by surnames.
+        :type sort_handles: bool
+        :param locale: The locale to use for collation.
+        :type locale: A GrampsLocale object.
         """
         if not self.db_is_open:
             LOG.warning("database is closed")
@@ -591,12 +589,15 @@ class DummyDb(M_A_M_B("NewBaseClass", (DbReadBase, Callback, object,), {})):
             LOG.warning("database is closed")
         return []
 
-    def get_media_handles(self, sort_handles=False):
+    def get_media_handles(self, sort_handles=False, locale=glocale):
         """
         Return a list of database handles, one handle for each Media in
         the database.
 
-        If sort_handles is True, the list is sorted by title.
+        :param sort_handles: If True, the list is sorted by title.
+        :type sort_handles: bool
+        :param locale: The locale to use for collation.
+        :type locale: A GrampsLocale object.
         """
         if not self.db_is_open:
             LOG.warning("database is closed")
@@ -680,7 +681,7 @@ class DummyDb(M_A_M_B("NewBaseClass", (DbReadBase, Callback, object,), {})):
         if not self.db_is_open:
             LOG.warning("database is closed")
         LOG.warning("handle %s does not exist in the dummy database", handle)
-        raise HandleError('Handle %s not found' % handle.encode('utf-8'))
+        raise HandleError('Handle %s not found' % handle)
 
     def get_note_handles(self):
         """
@@ -792,7 +793,7 @@ class DummyDb(M_A_M_B("NewBaseClass", (DbReadBase, Callback, object,), {})):
         if not self.db_is_open:
             LOG.warning("database is closed")
         LOG.warning("handle %s does not exist in the dummy database", handle)
-        raise HandleError('Handle %s not found' % handle.encode('utf-8'))
+        raise HandleError('Handle %s not found' % handle)
 
     def get_person_attribute_types(self):
         """
@@ -839,14 +840,17 @@ class DummyDb(M_A_M_B("NewBaseClass", (DbReadBase, Callback, object,), {})):
         if not self.db_is_open:
             LOG.warning("database is closed")
         LOG.warning("handle %s does not exist in the dummy database", handle)
-        raise HandleError('Handle %s not found' % handle.encode('utf-8'))
+        raise HandleError('Handle %s not found' % handle)
 
-    def get_person_handles(self, sort_handles=False):
+    def get_person_handles(self, sort_handles=False, locale=glocale):
         """
         Return a list of database handles, one handle for each Person in
         the database.
 
-        If sort_handles is True, the list is sorted by surnames.
+        :param sort_handles: If True, the list is sorted by surnames.
+        :type sort_handles: bool
+        :param locale: The locale to use for collation.
+        :type locale: A GrampsLocale object.
         """
         if not self.db_is_open:
             LOG.warning("database is closed")
@@ -897,14 +901,17 @@ class DummyDb(M_A_M_B("NewBaseClass", (DbReadBase, Callback, object,), {})):
         if not self.db_is_open:
             LOG.warning("database is closed")
         LOG.warning("handle %s does not exist in the dummy database", handle)
-        raise HandleError('Handle %s not found' % handle.encode('utf-8'))
+        raise HandleError('Handle %s not found' % handle)
 
-    def get_place_handles(self, sort_handles=False):
+    def get_place_handles(self, sort_handles=False, locale=glocale):
         """
         Return a list of database handles, one handle for each Place in
         the database.
 
-        If sort_handles is True, the list is sorted by Place title.
+        :param sort_handles: If True, the list is sorted by Place title.
+        :type sort_handles: bool
+        :param locale: The locale to use for collation.
+        :type locale: A GrampsLocale object.
         """
         if not self.db_is_open:
             LOG.warning("database is closed")
@@ -917,7 +924,7 @@ class DummyDb(M_A_M_B("NewBaseClass", (DbReadBase, Callback, object,), {})):
         if not self.db_is_open:
             LOG.warning("database is closed")
         LOG.warning("handle %s does not exist in the dummy database", handle)
-        raise HandleError('Handle %s not found' % handle.encode('utf-8'))
+        raise HandleError('Handle %s not found' % handle)
 
     def get_raw_family_data(self, handle):
         """
@@ -926,7 +933,7 @@ class DummyDb(M_A_M_B("NewBaseClass", (DbReadBase, Callback, object,), {})):
         if not self.db_is_open:
             LOG.warning("database is closed")
         LOG.warning("handle %s does not exist in the dummy database", handle)
-        raise HandleError('Handle %s not found' % handle.encode('utf-8'))
+        raise HandleError('Handle %s not found' % handle)
 
     def get_raw_note_data(self, handle):
         """
@@ -935,7 +942,7 @@ class DummyDb(M_A_M_B("NewBaseClass", (DbReadBase, Callback, object,), {})):
         if not self.db_is_open:
             LOG.warning("database is closed")
         LOG.warning("handle %s does not exist in the dummy database", handle)
-        raise HandleError('Handle %s not found' % handle.encode('utf-8'))
+        raise HandleError('Handle %s not found' % handle)
 
     def get_raw_media_data(self, handle):
         """
@@ -944,7 +951,7 @@ class DummyDb(M_A_M_B("NewBaseClass", (DbReadBase, Callback, object,), {})):
         if not self.db_is_open:
             LOG.warning("database is closed")
         LOG.warning("handle %s does not exist in the dummy database", handle)
-        raise HandleError('Handle %s not found' % handle.encode('utf-8'))
+        raise HandleError('Handle %s not found' % handle)
 
     def get_raw_person_data(self, handle):
         """
@@ -953,7 +960,7 @@ class DummyDb(M_A_M_B("NewBaseClass", (DbReadBase, Callback, object,), {})):
         if not self.db_is_open:
             LOG.warning("database is closed")
         LOG.warning("handle %s does not exist in the dummy database", handle)
-        raise HandleError('Handle %s not found' % handle.encode('utf-8'))
+        raise HandleError('Handle %s not found' % handle)
 
     def get_raw_place_data(self, handle):
         """
@@ -962,7 +969,7 @@ class DummyDb(M_A_M_B("NewBaseClass", (DbReadBase, Callback, object,), {})):
         if not self.db_is_open:
             LOG.warning("database is closed")
         LOG.warning("handle %s does not exist in the dummy database", handle)
-        raise HandleError('Handle %s not found' % handle.encode('utf-8'))
+        raise HandleError('Handle %s not found' % handle)
 
     def get_raw_repository_data(self, handle):
         """
@@ -971,7 +978,7 @@ class DummyDb(M_A_M_B("NewBaseClass", (DbReadBase, Callback, object,), {})):
         if not self.db_is_open:
             LOG.warning("database is closed")
         LOG.warning("handle %s does not exist in the dummy database", handle)
-        raise HandleError('Handle %s not found' % handle.encode('utf-8'))
+        raise HandleError('Handle %s not found' % handle)
 
     def get_raw_source_data(self, handle):
         """
@@ -980,7 +987,7 @@ class DummyDb(M_A_M_B("NewBaseClass", (DbReadBase, Callback, object,), {})):
         if not self.db_is_open:
             LOG.warning("database is closed")
         LOG.warning("handle %s does not exist in the dummy database", handle)
-        raise HandleError('Handle %s not found' % handle.encode('utf-8'))
+        raise HandleError('Handle %s not found' % handle)
 
     def get_raw_citation_data(self, handle):
         """
@@ -989,7 +996,7 @@ class DummyDb(M_A_M_B("NewBaseClass", (DbReadBase, Callback, object,), {})):
         if not self.db_is_open:
             LOG.warning("database is closed")
         LOG.warning("handle %s does not exist in the dummy database", handle)
-        raise HandleError('Handle %s not found' % handle.encode('utf-8'))
+        raise HandleError('Handle %s not found' % handle)
 
     def get_raw_tag_data(self, handle):
         """
@@ -998,7 +1005,7 @@ class DummyDb(M_A_M_B("NewBaseClass", (DbReadBase, Callback, object,), {})):
         if not self.db_is_open:
             LOG.warning("database is closed")
         LOG.warning("handle %s does not exist in the dummy database", handle)
-        raise HandleError('Handle %s not found' % handle.encode('utf-8'))
+        raise HandleError('Handle %s not found' % handle)
 
     def get_repo_bookmarks(self):
         """
@@ -1036,7 +1043,7 @@ class DummyDb(M_A_M_B("NewBaseClass", (DbReadBase, Callback, object,), {})):
         if not self.db_is_open:
             LOG.warning("database is closed")
         LOG.warning("handle %s does not exist in the dummy database", handle)
-        raise HandleError('Handle %s not found' % handle.encode('utf-8'))
+        raise HandleError('Handle %s not found' % handle)
 
     def get_repository_handles(self):
         """
@@ -1063,7 +1070,7 @@ class DummyDb(M_A_M_B("NewBaseClass", (DbReadBase, Callback, object,), {})):
         """
         if not self.db_is_open:
             LOG.warning("database is closed")
-        return None
+        return self.owner
 
     def get_save_path(self):
         """
@@ -1107,14 +1114,17 @@ class DummyDb(M_A_M_B("NewBaseClass", (DbReadBase, Callback, object,), {})):
         if not self.db_is_open:
             LOG.warning("database is closed")
         LOG.warning("handle %s does not exist in the dummy database", handle)
-        raise HandleError('Handle %s not found' % handle.encode('utf-8'))
+        raise HandleError('Handle %s not found' % handle)
 
-    def get_source_handles(self, sort_handles=False):
+    def get_source_handles(self, sort_handles=False, locale=glocale):
         """
         Return a list of database handles, one handle for each Source in
         the database.
 
-        If sort_handles is True, the list is sorted by Source title.
+        :param sort_handles: If True, the list is sorted by Source title.
+        :type sort_handles: bool
+        :param locale: The locale to use for collation.
+        :type locale: A GrampsLocale object.
         """
         if not self.db_is_open:
             LOG.warning("database is closed")
@@ -1165,14 +1175,17 @@ class DummyDb(M_A_M_B("NewBaseClass", (DbReadBase, Callback, object,), {})):
         if not self.db_is_open:
             LOG.warning("database is closed")
         LOG.warning("handle %s does not exist in the dummy database", handle)
-        raise HandleError('Handle %s not found' % handle.encode('utf-8'))
+        raise HandleError('Handle %s not found' % handle)
 
-    def get_citation_handles(self, sort_handles=False):
+    def get_citation_handles(self, sort_handles=False, locale=glocale):
         """
         Return a list of database handles, one handle for each Citation in
         the database.
 
-        If sort_handles is True, the list is sorted by Citation title.
+        :param sort_handles: If True, the list is sorted by Citation title.
+        :type sort_handles: bool
+        :param locale: The locale to use for collation.
+        :type locale: A GrampsLocale object.
         """
         if not self.db_is_open:
             LOG.warning("database is closed")
@@ -1203,7 +1216,7 @@ class DummyDb(M_A_M_B("NewBaseClass", (DbReadBase, Callback, object,), {})):
         if not self.db_is_open:
             LOG.warning("database is closed")
         LOG.warning("handle %s does not exist in the dummy database", handle)
-        raise HandleError('Handle %s not found' % handle.encode('utf-8'))
+        raise HandleError('Handle %s not found' % handle)
 
     def get_tag_from_name(self, val):
         """
@@ -1216,12 +1229,15 @@ class DummyDb(M_A_M_B("NewBaseClass", (DbReadBase, Callback, object,), {})):
         LOG.warning("tag name %s does not exist in the dummy database", val)
         return None
 
-    def get_tag_handles(self, sort_handles=False):
+    def get_tag_handles(self, sort_handles=False, locale=glocale):
         """
         Return a list of database handles, one handle for each Tag in
         the database.
 
-        If sort_handles is True, the list is sorted by Tag name.
+        :param sort_handles: If True, the list is sorted by Tag name.
+        :type sort_handles: bool
+        :param locale: The locale to use for collation.
+        :type locale: A GrampsLocale object.
         """
         if not self.db_is_open:
             LOG.warning("database is closed")
@@ -1621,7 +1637,7 @@ class DummyDb(M_A_M_B("NewBaseClass", (DbReadBase, Callback, object,), {})):
 
     def set_mediapath(self, path):
         """
-        Set the default media path for database, path should be utf-8.
+        Set the default media path for database.
         """
         if not self.db_is_open:
             LOG.warning("database is closed")

@@ -65,7 +65,7 @@ class KinshipReport(Report):
 
         The arguments are:
 
-        database        - the GRAMPS database instance
+        database        - the Gramps database instance
         options         - instance of the Options class for this report
         user            - a gen.user.User() instance
 
@@ -86,11 +86,12 @@ class KinshipReport(Report):
         Report.__init__(self, database, options, user)
         menu = options.menu
 
-        lang = menu.get_option_by_name('trans').get_value()
-        rlocale = self.set_locale(lang)
+        self.set_locale(menu.get_option_by_name('trans').get_value())
+
+        stdoptions.run_date_format_option(self, menu)
 
         stdoptions.run_private_data_option(self, menu)
-        stdoptions.run_living_people_option(self, menu, rlocale)
+        stdoptions.run_living_people_option(self, menu, self._locale)
         self.database = CacheProxyDb(self.database)
         self.__db = self.database
 
@@ -107,7 +108,7 @@ class KinshipReport(Report):
         stdoptions.run_name_format_option(self, menu)
 
         self.rel_calc = get_relationship_calculator(reinit=True,
-                                                    clocale=rlocale)
+                                                    clocale=self._locale)
 
         self.kinship_map = {}
         self.spouse_map = {}
@@ -317,8 +318,8 @@ class KinshipReport(Report):
             death_date = self._get_date(death.get_date_object())
         dates = ''
         if birth_date or death_date:
-            dates = self._(" (%(birth_date)s - %(death_date)s)"
-                          ) % {'birth_date' : birth_date,
+            dates = " (%(birth_date)s - %(death_date)s)" % {
+                               'birth_date' : birth_date,
                                'death_date' : death_date}
 
         self.doc.start_paragraph('KIN-Normal')
@@ -358,12 +359,6 @@ class KinshipOptions(MenuReportOptions):
         self.__pid.set_help(_("The center person for the report"))
         menu.add_option(category_name, "pid", self.__pid)
 
-        stdoptions.add_name_format_option(menu, category_name)
-
-        stdoptions.add_private_data_option(menu, category_name)
-
-        stdoptions.add_living_people_option(menu, category_name)
-
         maxdescend = NumberOption(_("Max Descendant Generations"), 2, 1, 20)
         maxdescend.set_help(_("The maximum number of descendant generations"))
         menu.add_option(category_name, "maxdescend", maxdescend)
@@ -384,7 +379,17 @@ class KinshipOptions(MenuReportOptions):
         incaunts.set_help(_("Whether to include aunts/uncles/nephews/nieces"))
         menu.add_option(category_name, "incaunts", incaunts)
 
-        stdoptions.add_localization_option(menu, category_name)
+        category_name = _("Report Options (2)")
+
+        stdoptions.add_name_format_option(menu, category_name)
+
+        stdoptions.add_private_data_option(menu, category_name)
+
+        stdoptions.add_living_people_option(menu, category_name)
+
+        locale_opt = stdoptions.add_localization_option(menu, category_name)
+
+        stdoptions.add_date_format_option(menu, category_name, locale_opt)
 
     def make_default_style(self, default_style):
         """Make the default output style for the Kinship Report."""
@@ -398,7 +403,7 @@ class KinshipOptions(MenuReportOptions):
         para.set_bottom_margin(utils.pt2cm(8))
         para.set_font(font)
         para.set_alignment(PARA_ALIGN_CENTER)
-        para.set_description(_("The style used for the title of the page."))
+        para.set_description(_("The style used for the title."))
         default_style.add_paragraph_style("KIN-Title", para)
 
         font = FontStyle()
@@ -408,7 +413,7 @@ class KinshipOptions(MenuReportOptions):
         para.set_header_level(3)
         para.set_font(font)
         para.set_top_margin(utils.pt2cm(6))
-        para.set_description(_('The basic style used for sub-headings.'))
+        para.set_description(_('The style used for second level headings.'))
         default_style.add_paragraph_style("KIN-Subtitle", para)
 
         font = FontStyle()

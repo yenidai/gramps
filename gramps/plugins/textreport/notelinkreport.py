@@ -98,7 +98,13 @@ class NoteLinkReport(Report):
 
         self.doc.end_row()
 
+        if self._user:
+            self._user.begin_progress(_("Note Link Check Report"),
+                                      _("Generating report"),
+                                      self.database.get_number_of_notes())
         for note in self.database.iter_notes():
+            if self._user:
+                self._user.step_progress()
             for (ldomain, ltype, lprop, lvalue) in note.get_links():
                     if ldomain == "gramps":
                         tagtype = _(ltype)
@@ -141,6 +147,8 @@ class NoteLinkReport(Report):
                     self.doc.end_cell()
 
                     self.doc.end_row()
+        if self._user:
+            self._user.end_progress()
 
         self.doc.end_table()
 
@@ -175,7 +183,7 @@ class NoteLinkOptions(MenuReportOptions):
         p.set_bottom_margin(utils.pt2cm(3))
         p.set_font(f)
         p.set_alignment(PARA_ALIGN_CENTER)
-        p.set_description(_("The style used for the title of the page."))
+        p.set_description(_("The style used for the title."))
         default_style.add_paragraph_style("NoteLink-Title", p)
 
         font = FontStyle()

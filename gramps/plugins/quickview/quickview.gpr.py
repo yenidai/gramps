@@ -18,8 +18,11 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
+from gramps.gen.plug._pluginreg import *
+from gramps.gen.const import GRAMPS_LOCALE as glocale
+_ = glocale.translation.gettext
 
-MODULE_VERSION="5.0"
+MODULE_VERSION="5.1"
 
 #------------------------------------------------------------------------
 #
@@ -204,7 +207,7 @@ refitems = [(CATEGORY_QR_PERSON, 'person', _("Person")),
             (CATEGORY_QR_MEDIA, 'media', _("Media")),
             (CATEGORY_QR_NOTE, 'note', _("Note")),
             (CATEGORY_QR_CITATION, 'citation', _("Citation")),
-            (CATEGORY_QR_SOURCE_OR_CITATION, 'source or citation',
+            (CATEGORY_QR_SOURCE_OR_CITATION, 'source_or_citation',
                     _("Source or Citation"))
             ]
 

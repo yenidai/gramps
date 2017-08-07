@@ -34,7 +34,7 @@ from gramps.gen.const import GRAMPS_LOCALE as glocale
 _ = glocale.translation.sgettext
 from ..views.treemodels import SourceModel
 from .baseselector import BaseSelector
-from gramps.gui.display import display_help
+from ..display import display_help
 from gramps.gen.const import URL_MANUAL_PAGE
 
 #-------------------------------------------------------------------------
@@ -42,8 +42,8 @@ from gramps.gen.const import URL_MANUAL_PAGE
 # Constants
 #
 #-------------------------------------------------------------------------
-WIKI_HELP_PAGE = '%s_-_xxx' % URL_MANUAL_PAGE # FIXME
-WIKI_HELP_SEC = _('manual|xxxx') # FIXME
+# WIKI_HELP_PAGE = '%s_-_xxx' % URL_MANUAL_PAGE # FIXME
+# WIKI_HELP_SEC = _('manual|xxxx') # FIXME
 
 #-------------------------------------------------------------------------
 #
@@ -56,8 +56,7 @@ class SelectSource(BaseSelector):
         """
         Perform local initialisation for this class
         """
-        self.width_key = 'interface.source-sel-width'
-        self.height_key = 'interface.source-sel-height'
+        self.setup_configs('interface.source-sel', 600, 450)
 
     def get_window_title(self):
         return _("Select Source")

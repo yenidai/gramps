@@ -245,7 +245,8 @@ class ParserDateTest(BaseDateTest):
                                 "dateval fails is_equal in format %d:\n"
                                 "   '%s' != '%s'\n"
                                 "   '%s' != '%s'\n" %
-                                (date_format, dateval, ndate, dateval.to_struct(), ndate.to_struct()))
+                                (date_format, dateval, ndate,
+                                 dateval.__dict__, ndate.__dict__))
 
     def test_basic(self):
         self.do_case("basic test")
@@ -380,7 +381,7 @@ class MatchDateTest(BaseDateTest):
                              d1,
                              ("did not match" if expected else "matched"),
                              d2,
-                             date1.to_struct(), date2.to_struct()))
+                             date1.__dict__, date2.__dict__))
 
     def test_match(self):
         for testdata in self.tests:
@@ -534,6 +535,43 @@ class Test_set_newyear(BaseDateTest):
                 self.assertFalse(should_raise, message)
             except DateError:
                 self.assertTrue(should_raise, message)
+
+#-------------------------------------------------------------------------
+#
+# EmptyDateTest
+#
+#-------------------------------------------------------------------------
+class EmptyDateTest(BaseDateTest):
+    """
+    Tests for empty dates.
+    """
+    def test_empty(self):
+        d = Date()
+        self.assertTrue(d.is_empty())
+
+    def test_text_only_empty(self):
+        d = Date()
+        d.set(text='First of Jan',
+              modifier=Date.MOD_TEXTONLY)
+        self.assertFalse(d.is_empty())
+
+    def test_single_empty(self):
+        d = Date()
+        d.set(value=(1, 1, 1900, False),
+              modifier=Date.MOD_NONE)
+        self.assertFalse(d.is_empty())
+
+    def test_range_empty(self):
+        d = Date()
+        d.set(value=(1, 1, 1900, False, 1, 1, 1910, False),
+              modifier=Date.MOD_RANGE)
+        self.assertFalse(d.is_empty())
+
+    def test_span_empty(self):
+        d = Date()
+        d.set(value=(1, 1, 1900, False, 1, 1, 1910, False),
+              modifier=Date.MOD_SPAN)
+        self.assertFalse(d.is_empty())
 
 if __name__ == "__main__":
     unittest.main()

@@ -15,8 +15,9 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
+import os
 
 ## This file is copied from gramps/plugins/db/dbapi/settings.py
 ## into each grampsdb/*/ directory. You can edit each copy
@@ -27,6 +28,7 @@
 # NOTE: config is predefined
 
 # NOTE: you can override this in settings.ini or here:
+#from gramps.gen.config import config
 dbtype = config.get('database.dbtype')
 
 if dbtype == "sqlite":
@@ -36,20 +38,15 @@ if dbtype == "sqlite":
     dbapi = Sqlite(path_to_db)
 else:
     # NOTE: you can override these settings here or in settings.ini:
-    dbname = config.get('database.dbname')
-    host = config.get('database.host')
-    user = config.get('database.user')
-    password = config.get('database.password')
-    port = config.get('database.port')
-    if dbtype == "mysql":
-        from gramps.plugins.db.dbapi.mysql import MySQL
-        dbapi = MySQL(host, user, password, dbname,
-                      charset='utf8', use_unicode=True)
-    elif dbtype == "postgresql":
+    dbkwargs = {}
+    for key in config.get_section_settings('database'):
+        # Use all parameters except dbtype as keyword arguments
+        if key == 'dbtype':
+            continue
+        dbkwargs[key] = config.get('database.' + key)
+    if dbtype == "postgresql":
         from gramps.plugins.db.dbapi.postgresql import Postgresql
-        dbapi = Postgresql(dbname=dbname, user=user,
-                           host=host, password=password)
+        dbapi = Postgresql(**dbkwargs)
     else:
         raise AttributeError(("invalid DB-API dbtype: '%s'. " +
-                              "Should be 'sqlite', 'mysql', " +
-                              "or 'postgresql'") % dbtype)
+                              "Should be 'sqlite' or 'postgresql'") % dbtype)

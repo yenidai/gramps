@@ -111,16 +111,14 @@ class RelCalc(tool.Tool, ManagedWindow):
                         _('Relationship to %(person_name)s'
                           ) % {'person_name' : name},
                         self.title)
-        self.height_key = 'interface.relcalc-height'
-        self.width_key = 'interface.relcalc-width'
-        self._set_size()
+        self.setup_configs('interface.relcalc', 600, 400)
 
         self.tree = self.glade.get_object("peopleList")
         self.text = self.glade.get_object("text1")
         self.textbuffer = Gtk.TextBuffer()
         self.text.set_buffer(self.textbuffer)
 
-        self.model = PersonTreeModel(self.db)
+        self.model = PersonTreeModel(self.db, uistate)
         self.tree.set_model(self.model)
 
         self.tree.connect('key-press-event', self._key_press)

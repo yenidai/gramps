@@ -16,7 +16,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
 
 """
@@ -38,6 +38,7 @@ import re
 #
 #-------------------------------------------------------------------------
 from gramps.gen.db.dbconst import ARRAYSIZE
+from gramps.gen.const import GRAMPS_LOCALE as glocale
 
 sqlite3.paramstyle = 'qmark'
 
@@ -83,6 +84,19 @@ class Sqlite:
         self.__connection = sqlite3.connect(*args, **kwargs)
         self.__cursor = self.__connection.cursor()
         self.__connection.create_function("regexp", 2, regexp)
+        self.__collations = []
+        self.check_collation(glocale)
+
+    def check_collation(self, locale):
+        """
+        Checks that a collation exists and if not creates it.
+
+        :param locale: Locale to be checked.
+        :param type: A GrampsLocale object.
+        """
+        collation = locale.get_collation()
+        if collation not in self.__collations:
+            self.__connection.create_collation(collation, locale.strcoll)
 
     def execute(self, *args, **kwargs):
         """

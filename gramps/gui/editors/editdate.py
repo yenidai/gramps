@@ -124,6 +124,7 @@ class EditDate(ManagedWindow):
             self.top.toplevel,
             self.top.get_object('title'),
             _('Date selection'))
+        self.setup_configs('interface.editdate', 620, 320)
 
         self.statusbar = self.top.get_object('statusbar')
         self.ok_button = self.top.get_object('ok_button')
@@ -257,7 +258,7 @@ class EditDate(ManagedWindow):
                 newyear=the_newyear)
             # didn't throw yet?
             self.validated_date = d
-            LOG.debug("validated_date set to: {0}".format(d.to_struct()))
+            LOG.debug("validated_date set to: {0}".format(d.__dict__))
             self.ok_button.set_sensitive(1)
             self.calendar_box.set_sensitive(1)
             return True

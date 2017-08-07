@@ -100,7 +100,7 @@ class RemoveUnused(tool.Tool, ManagedWindow, UpdateCallback):
                           'name_ix': 3},
             'places': {'get_func': self.db.get_place_from_handle,
                        'remove': self.db.remove_place,
-                       'get_text': None,
+                       'get_text': self.get_place_text,
                        'editor': 'EditPlace',
                        'icon': 'gramps-place',
                        'name_ix': 2},
@@ -130,6 +130,7 @@ class RemoveUnused(tool.Tool, ManagedWindow, UpdateCallback):
         self.top = Glade()
         window = self.top.toplevel
         self.set_window(window, self.top.get_object('title'), self.title)
+        self.setup_configs('interface.removeunused', 400, 520)
 
         self.events_box = self.top.get_object('events_box')
         self.sources_box = self.top.get_object('sources_box')
@@ -290,8 +291,7 @@ class RemoveUnused(tool.Tool, ManagedWindow, UpdateCallback):
                 for handle, data in cursor:
                     if not any(h for h in fbh(handle)):
                         if handle not in todo_list and handle not in link_list:
-                            self.add_results((the_type, handle.decode('utf-8'),
-                                              data))
+                            self.add_results((the_type, handle, data))
                     self.update()
             self.reset()
 
@@ -434,6 +434,17 @@ class RemoveUnused(tool.Tool, ManagedWindow, UpdateCallback):
 
         return text
 
+    def get_place_text(self, the_type, handle, data):
+        """
+        We need just the place name.
+        """
+        # get the place object
+        place = self.tables[the_type]['get_func'](handle)
+
+        # get the name
+        text = place.get_name().get_value()
+
+        return text
 #------------------------------------------------------------------------
 #
 #
